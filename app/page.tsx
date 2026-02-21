@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PenLine, Clock, Handshake, LucideIcon } from 'lucide-react'
+import MentionsLegales from './components/MentionsLegales'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -156,11 +157,15 @@ export default function Home() {
   return (
     <>
       {/* ─── NAVIGATION ─── */}
-      <nav className="flex items-center justify-between px-8 py-5 border-b border-gray-200 sticky top-0 bg-white/95 backdrop-blur-sm z-50">
-        <a href="#" className="text-lg font-bold text-indigo-600 no-underline">Recouvr.io</a>
-        <span className="bg-amber-50 text-amber-800 text-xs font-semibold px-3 py-1.5 rounded-full">
-          V1
-        </span>
+      <nav className="flex items-center justify-center px-8 py-4 border-b border-gray-200 sticky top-0 bg-white/95 backdrop-blur-sm z-50">
+        <a href="#" className="flex items-center gap-2 no-underline group">
+          <span className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
+            <span className="text-white text-xs font-black tracking-tighter">RI</span>
+          </span>
+          <span className="text-xl font-black tracking-tight text-gray-900">
+            Recouvr<span className="text-indigo-600">.io</span>
+          </span>
+        </a>
       </nav>
 
       {/* ─── HERO ─── */}
@@ -309,6 +314,8 @@ export default function Home() {
         <a href="mailto:contact@recouvr.fr" className="text-gray-400 hover:text-gray-600">
           contact@recouvr.fr
         </a>
+        {' '}·{' '}
+        <MentionsLegales />
       </footer>
 
       {/* ─── MODAL RÉSULTATS ─── */}

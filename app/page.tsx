@@ -126,6 +126,7 @@ export default function Home() {
 
   function handleFormSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+    window.dataLayer?.push({ event: 'submit_form' })
     setShowModal(true)
   }
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import CookieBanner from './components/CookieBanner'
 import './globals.css'
 
 const siteUrl = 'https://recouvr.io'
@@ -43,7 +44,18 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body>{children}</body>
+      <body>
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-N3BHW92C"
+            height="0"
+            width="0"
+            style={{ display: 'none', visibility: 'hidden' }}
+          />
+        </noscript>
+        {children}
+        <CookieBanner />
+      </body>
     </html>
   )
 }

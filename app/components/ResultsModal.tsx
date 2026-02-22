@@ -163,9 +163,14 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
             <a
               href={buildMailtoHref(form.emailClient, activeSubject, activeBody)}
               onClick={() => setOpenMenu(null)}
-              className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 no-underline"
+              className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-700 hover:bg-gray-50 no-underline"
             >
-              <span>✉️</span> App Mail
+              <span className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center shrink-0">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/>
+                </svg>
+              </span>
+              <span>App mail <span className="text-gray-400">(Gmail, Outlook…)</span></span>
             </a>
           </li>
           <li className="border-t border-gray-100">
@@ -174,9 +179,10 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setOpenMenu(null)}
-              className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 no-underline"
+              className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-700 hover:bg-gray-50 no-underline"
             >
-              <span>📧</span> Gmail
+              <span className="w-5 h-5 rounded bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">G</span>
+              <span>Gmail <span className="text-gray-400">(navigateur)</span></span>
             </a>
           </li>
           <li className="border-t border-gray-100">
@@ -185,9 +191,10 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setOpenMenu(null)}
-              className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 no-underline"
+              className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-700 hover:bg-gray-50 no-underline"
             >
-              <span>📮</span> Outlook
+              <span className="w-5 h-5 rounded bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0">O</span>
+              <span>Outlook <span className="text-gray-400">(navigateur)</span></span>
             </a>
           </li>
         </ul>,

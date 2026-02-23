@@ -18,6 +18,7 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
   const [copied, setCopied] = useState<number | null>(null)
   const [editedBodies, setEditedBodies] = useState<Record<number, string>>({})
 
+  // Reset les corps éditables à chaque nouvelle génération (pas seulement à l'init)
   useEffect(() => {
     const init: Record<number, string> = {}
     emails.forEach(e => { init[e.level] = e.body })
@@ -61,7 +62,7 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
           {emails.map(({ level, label, tone, dot, tag, border, subject }) => (
             <div
               key={level}
-              style={{ animationDelay: `${(level - 1) * 130}ms` }}
+              style={{ animationDelay: `${(level - 1) * 130}ms` }} // entrée décalée carte par carte
               className={`animate-fade-up opacity-0 border border-gray-200 border-l-4 ${border} rounded-xl p-4 flex flex-col`}
             >
               <div className="flex items-center gap-2 mb-3">
@@ -81,6 +82,7 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
                 >
                   {copied === level ? '✓ Copié !' : 'Copier'}
                 </button>
+                {/* mailto: → ouvre l'app mail par défaut sur tous les OS/mobiles */}
                 <a
                   href={buildMailtoHref(form.emailClient, subject, editedBodies[level] ?? '')}
                   className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-all text-center no-underline"

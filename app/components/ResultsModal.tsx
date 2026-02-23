@@ -1,7 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useState } from 'react'
 import { EmailTemplate, FormState, formatDate, formatMontant } from '../lib/emails'
 
 interface Props {
@@ -15,22 +14,10 @@ function buildMailtoHref(to: string, subject: string, body: string) {
   return `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
 }
 
-function buildGmailHref(to: string, subject: string, body: string) {
-  return `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-}
-
-function buildOutlookHref(to: string, subject: string, body: string) {
-  return `https://outlook.live.com/mail/0/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-}
-
 export default function ResultsModal({ show, onClose, emails, form }: Props) {
   const [copied, setCopied] = useState<number | null>(null)
-  const [openMenu, setOpenMenu] = useState<number | null>(null)
-  const [menuRect, setMenuRect] = useState<DOMRect | null>(null)
   const [editedBodies, setEditedBodies] = useState<Record<number, string>>({})
-  const btnRefs = useRef<(HTMLButtonElement | null)[]>([])
 
-  // Initialise les corps éditables à chaque nouvelle génération
   useEffect(() => {
     const init: Record<number, string> = {}
     emails.forEach(e => { init[e.level] = e.body })
@@ -43,34 +30,7 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
     setTimeout(() => setCopied(null), 2000)
   }
 
-  function handleToggleMenu(level: number) {
-    if (openMenu === level) {
-      setOpenMenu(null)
-      setMenuRect(null)
-    } else {
-      const btn = btnRefs.current[level]
-      if (btn) setMenuRect(btn.getBoundingClientRect())
-      setOpenMenu(level)
-    }
-  }
-
-  useEffect(() => {
-    if (openMenu === null) return
-    const close = (e: MouseEvent) => {
-      const btn = btnRefs.current[openMenu]
-      if (btn && btn.contains(e.target as Node)) return
-      setOpenMenu(null)
-      setMenuRect(null)
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [openMenu])
-
   if (!show) return null
-
-  const activeEmail = emails.find(e => e.level === openMenu)
-  const activeBody = openMenu !== null ? (editedBodies[openMenu] ?? '') : ''
-  const activeSubject = activeEmail?.subject ?? ''
 
   return (
     <div
@@ -121,13 +81,12 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
                 >
                   {copied === level ? '✓ Copié !' : 'Copier'}
                 </button>
-                <button
-                  ref={el => { btnRefs.current[level] = el }}
-                  onClick={() => handleToggleMenu(level)}
-                  className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-all cursor-pointer"
+                <a
+                  href={buildMailtoHref(form.emailClient, subject, editedBodies[level] ?? '')}
+                  className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-all text-center no-underline"
                 >
-                  Envoyer {openMenu === level ? '▲' : '▼'}
-                </button>
+                  Envoyer
+                </a>
               </div>
 
               <div className="text-sm font-semibold text-gray-900 mb-3 pb-3 border-b border-dashed border-gray-200">
@@ -144,62 +103,6 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
           ))}
         </div>
       </div>
-
-      {/* Dropdown rendu dans document.body via portal */}
-      {openMenu !== null && menuRect && createPortal(
-        <ul
-          onMouseDown={e => e.stopPropagation()}
-          onClick={e => e.stopPropagation()}
-          style={{
-            position: 'fixed',
-            top: menuRect.bottom + 4,
-            left: menuRect.left,
-            width: menuRect.width,
-            zIndex: 9999,
-          }}
-          className="bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden list-none p-0 m-0"
-        >
-          <li>
-            <a
-              href={buildMailtoHref(form.emailClient, activeSubject, activeBody)}
-              onClick={() => setOpenMenu(null)}
-              className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-700 hover:bg-gray-50 no-underline"
-            >
-              <span className="w-5 h-5 rounded bg-gray-100 flex items-center justify-center shrink-0">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/>
-                </svg>
-              </span>
-              <span>App mail <span className="text-gray-400">(Gmail, Outlook…)</span></span>
-            </a>
-          </li>
-          <li className="border-t border-gray-100">
-            <a
-              href={buildGmailHref(form.emailClient, activeSubject, activeBody)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpenMenu(null)}
-              className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-700 hover:bg-gray-50 no-underline"
-            >
-              <span className="w-5 h-5 rounded bg-red-500 text-white text-[9px] font-bold flex items-center justify-center shrink-0">G</span>
-              <span>Gmail <span className="text-gray-400">(navigateur)</span></span>
-            </a>
-          </li>
-          <li className="border-t border-gray-100">
-            <a
-              href={buildOutlookHref(form.emailClient, activeSubject, activeBody)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpenMenu(null)}
-              className="flex items-center gap-2 px-3 py-2.5 text-xs text-gray-700 hover:bg-gray-50 no-underline"
-            >
-              <span className="w-5 h-5 rounded bg-blue-600 text-white text-[9px] font-bold flex items-center justify-center shrink-0">O</span>
-              <span>Outlook <span className="text-gray-400">(navigateur)</span></span>
-            </a>
-          </li>
-        </ul>,
-        document.body
-      )}
     </div>
   )
 }

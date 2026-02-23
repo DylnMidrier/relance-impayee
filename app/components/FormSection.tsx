@@ -27,7 +27,7 @@ export default function FormSection({ form, onChange, onSubmit }: Props) {
         <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-lg">
           <form onSubmit={onSubmit}>
             {FORM_FIELDS.map(({ id, label, type, placeholder, required }) => (
-              <div key={id} className="mb-5">
+              <div key={id} className="mb-5 overflow-hidden">
                 <label htmlFor={id} className="block text-sm font-semibold mb-1.5 text-gray-900">{label}</label>
                 <input
                   id={id}
@@ -37,13 +37,13 @@ export default function FormSection({ form, onChange, onSubmit }: Props) {
                   min={type === 'number' ? 1 : undefined}
                   value={form[id]}
                   onChange={e => onChange({ ...form, [id]: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all placeholder:text-gray-300"
+                  className="w-full min-w-0 px-4 py-3 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all placeholder:text-gray-300"
                 />
               </div>
             ))}
             <button
               type="submit"
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl mt-2 transition-colors cursor-pointer"
+              className="w-full px-4 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl mt-2 transition-colors cursor-pointer"
             >
               Générer mes 3 emails de relance →
             </button>

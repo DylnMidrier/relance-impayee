@@ -62,7 +62,7 @@ export default function CookieBanner() {
         <div className="fixed bottom-0 inset-x-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur-sm px-6 py-4">
           <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <p className="text-sm text-gray-600 leading-relaxed">
-              On utilise des cookies d'analyse (Microsoft Clarity) pour comprendre comment vous utilisez le site.{' '}
+              On utilise des cookies d'analyse (Microsoft Clarity, Google Analytics) pour comprendre comment vous utilisez le site.{' '}
               <span className="text-gray-400">Aucun cookie publicitaire.</span>
             </p>
             <div className="flex gap-2 shrink-0">

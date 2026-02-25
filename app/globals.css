@@ -6,6 +6,13 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Empêche le zoom automatique iOS Safari sur les inputs (déclenché si font-size < 16px) */
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
 /* Empêche le shrink du dot dans les flex containers */
 .dot {
   flex-shrink: 0;

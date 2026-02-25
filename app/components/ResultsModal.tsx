@@ -35,11 +35,11 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 md:p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[80vh] flex flex-col overflow-hidden"
+        className="bg-white w-full h-full md:rounded-2xl md:shadow-2xl md:max-w-7xl md:h-[80vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4 px-7 py-5 border-b border-gray-200 shrink-0">
@@ -51,7 +51,7 @@ export default function ResultsModal({ show, onClose, emails, form }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 transition-colors text-lg leading-none mt-0.5"
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors text-sm font-bold shrink-0"
             aria-label="Fermer"
           >
             ✕

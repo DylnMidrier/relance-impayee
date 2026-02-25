@@ -39,7 +39,7 @@ export default function Hero() {
           </h1>
           <p className="text-lg text-gray-500 leading-relaxed mb-8 max-w-md">
             Une facture impayée et vous ne savez pas comment relancer sans froisser la relation ?
-            On génère vos emails à votre place — du rappel amical à la mise en demeure.
+            Renseignez votre facture en 30 secondes. Vous récupérez 3 emails prêts à envoyer, du rappel poli jusqu'à la mise en demeure.
           </p>
           <div className="flex flex-col items-center md:items-start">
             <a

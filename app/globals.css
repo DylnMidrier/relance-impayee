@@ -13,7 +13,13 @@ html {
   }
 }
 
-/* Empêche le shrink du dot dans les flex containers */
-.dot {
-  flex-shrink: 0;
+/* Keyframes référencées via style prop ou classe Tailwind arbitrary */
+@keyframes regen {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
 }

@@ -1,3 +1,5 @@
+import { TEMPLATES } from './templates'
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface FormState {
@@ -54,7 +56,47 @@ function dateIn(days: number): string {
   return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-// ─── Génération des emails ─────────────────────────────────────────────────
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+function interpolate(str: string, vars: Record<string, string>): string {
+  return str.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '')
+}
+
+// Métadonnées fixes par niveau (couleurs, labels)
+const LEVEL_META: Record<number, Pick<EmailTemplate, 'label' | 'tone' | 'dot' | 'tag' | 'border'>> = {
+  1: { label: 'Niveau 1 · J+7',  tone: 'Rappel amical',   dot: 'bg-green-500',  tag: 'bg-green-50 text-green-700',   border: 'border-l-green-500'  },
+  2: { label: 'Niveau 2 · J+15', tone: 'Relance ferme',   dot: 'bg-orange-500', tag: 'bg-orange-50 text-orange-700', border: 'border-l-orange-500' },
+  3: { label: 'Niveau 3 · J+30', tone: 'Mise en demeure', dot: 'bg-red-500',    tag: 'bg-red-50 text-red-700',       border: 'border-l-red-500'    },
+}
+
+// ─── Génération ─────────────────────────────────────────────────────────────
+
+export function genEmailLevel(
+  level: 1 | 2 | 3,
+  prenom: string,
+  client: string,
+  facture: string,
+  montant: string,
+  echeance: string,
+): EmailTemplate {
+  const tpl = pickRandom(TEMPLATES[level])
+  const vars: Record<string, string> = {
+    client:   capitalize(client),
+    montant:  formatMontant(montant),
+    echeance: formatDate(echeance),
+    ref:      facture ? ` n°${facture}` : '',
+    deadline: dateIn(5),
+    prenom,
+  }
+  return {
+    level,
+    ...LEVEL_META[level],
+    subject: interpolate(tpl.subject, vars),
+    body:    interpolate(tpl.body, vars),
+  }
+}
 
 export function genEmails(
   prenom: string,
@@ -63,65 +105,7 @@ export function genEmails(
   montant: string,
   echeance: string,
 ): EmailTemplate[] {
-  const m = formatMontant(montant)
-  const d = formatDate(echeance)
-  const c = capitalize(client)
-  const refLabel = facture ? ` n°${facture}` : ''
-  const deadline = dateIn(5)
-
-  return [
-    {
-      level: 1,
-      label: 'Niveau 1 · J+7',
-      tone: 'Rappel amical',
-      dot: 'bg-green-500',
-      tag: 'bg-green-50 text-green-700',
-      border: 'border-l-green-500',
-      subject: `Rappel – Facture${refLabel}`,
-      body: `Bonjour ${c},
-
-J'espère que vous allez bien. Je me permets de revenir sur ma facture de ${m}, dont l'échéance était fixée au ${d}.
-
-Peut-être est-elle passée entre les mailles ? Si vous avez déjà procédé au règlement, merci de ne pas tenir compte de ce message.
-
-Dans le cas contraire, je reste disponible pour tout renseignement.
-
-Cordialement,
-${prenom}`,
-    },
-    {
-      level: 2,
-      label: 'Niveau 2 · J+15',
-      tone: 'Relance ferme',
-      dot: 'bg-orange-500',
-      tag: 'bg-orange-50 text-orange-700',
-      border: 'border-l-orange-500',
-      subject: `Relance – Facture${refLabel} toujours impayée`,
-      body: `Bonjour ${c},
-
-Sauf erreur de ma part, ma facture de ${m}, échue le ${d}, reste impayée à ce jour malgré mon précédent message.
-
-Je vous remercie de bien vouloir y donner suite dans les meilleurs délais. Sans retour de votre part avant le ${deadline}, je me verrai dans l'obligation de prendre d'autres dispositions.
-
-Cordialement,
-${prenom}`,
-    },
-    {
-      level: 3,
-      label: 'Niveau 3 · J+30',
-      tone: 'Mise en demeure',
-      dot: 'bg-red-500',
-      tag: 'bg-red-50 text-red-700',
-      border: 'border-l-red-500',
-      subject: `Mise en demeure – Règlement facture${refLabel}`,
-      body: `Bonjour ${c},
-
-Par la présente, je vous mets en demeure de procéder au règlement de la somme de ${m}, augmentée des pénalités de retard légales (3 fois le taux d'intérêt légal en vigueur), dans un délai de 8 jours à compter de la réception de ce message.
-
-À défaut de règlement dans ce délai, je me verrai contraint(e) d'engager les démarches de recouvrement appropriées, pouvant inclure une procédure judiciaire.
-
-Cordialement,
-${prenom}`,
-    },
-  ]
+  return ([1, 2, 3] as const).map(level =>
+    genEmailLevel(level, prenom, client, facture, montant, echeance)
+  )
 }

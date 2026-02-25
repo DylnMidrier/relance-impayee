@@ -39,6 +39,9 @@ Réécris le corps de l'email en appliquant cette instruction, en conservant un 
     })
 
     const improved = (message.content[0] as { type: string; text: string }).text
+    console.log('[improve-email] stop_reason:', message.stop_reason)
+    console.log('[improve-email] usage:', message.usage)
+    console.log('[improve-email] response:\n', improved)
     return NextResponse.json({ body: improved })
   } catch (err) {
     console.error('[improve-email]', err)

@@ -34,6 +34,17 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
   const [userPrompt, setUserPrompt] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [aiLoadingLevel, setAiLoadingLevel] = useState<number | null>(null)
+  const [toast, setToast] = useState<string | null>(null)
+  const [toastClosing, setToastClosing] = useState(false)
+
+  function showToast(message: string) {
+    setToast(message)
+    setToastClosing(false)
+    setTimeout(() => {
+      setToastClosing(true)
+      setTimeout(() => setToast(null), 320)
+    }, 4500)
+  }
 
   // Ref pour tracker les bodies précédents — ne reset que le niveau qui a changé
   const prevBodiesRef = useRef<Record<number, string>>({})
@@ -90,16 +101,17 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
       const data = text ? JSON.parse(text) : {}
       if (!res.ok || data.error) {
         console.error('[IA]', data.error ?? `HTTP ${res.status}`)
+        showToast("Désolé, notre agent IA a rencontré quelques soucis ! Mais il sera très vite remis sur pieds 🔧")
         return
       }
       if (data.body) {
         setEditedBodies(prev => ({ ...prev, [level]: data.body }))
         setRegenKeys(prev => ({ ...prev, [level]: prev[level] + 1 }))
-        closeIAModal()
       }
     } finally {
       setAiLoading(false)
       setAiLoadingLevel(null)
+      closeIAModal()
     }
   }
 
@@ -224,6 +236,18 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
           </div>
         </div>
       </div>
+
+      {/* Toast erreur IA — slide depuis le bas, slide vers le bas à la disparition */}
+      {toast && (
+        <div className="fixed bottom-6 left-0 right-0 z-[70] flex justify-center px-4 pointer-events-none">
+          <div
+            style={{ animation: `${toastClosing ? 'toast-out' : 'toast-in'} 0.32s ease-out forwards` }}
+            className="bg-gray-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl text-center leading-relaxed max-w-sm pointer-events-auto"
+          >
+            {toast}
+          </div>
+        </div>
+      )}
 
       {/* Modale IA — backdrop blur au-dessus de la modale principale */}
       {activeIALevel !== null && (

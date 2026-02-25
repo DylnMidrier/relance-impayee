@@ -1,7 +1,7 @@
 const STEPS = [
   { n: 1, title: 'Renseignez la facture',    desc: "Votre prénom, le nom du client, le montant, la date d'échéance. L'email du client et le numéro de facture sont optionnels." },
   { n: 2, title: 'On génère 3 emails',       desc: 'Un rappel amical, une relance ferme, une mise en demeure. Chaque email adapté à la situation.' },
-  { n: 3, title: 'Ajustez et envoyez',        desc: "Modifiez le texte si besoin, puis copiez ou envoyez directement depuis Gmail, Outlook ou votre app mail." },
+  { n: 3, title: 'Ajustez et envoyez',        desc: "Modifiez le texte si besoin, améliorez le grâce à notre agent IA, puis copiez ou envoyez le directement depuis votre application favorite." },
 ]
 
 const LEVELS = [

@@ -85,16 +85,6 @@ export default function MentionsLegales() {
                 </div>
               ))}
             </div>
-
-            {/* Footer */}
-            <div className="px-7 py-4 border-t border-gray-100 shrink-0">
-              <button
-                onClick={() => setOpen(false)}
-                className="w-full py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                Fermer
-              </button>
-            </div>
           </div>
         </div>
       )}

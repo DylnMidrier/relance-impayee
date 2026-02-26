@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 const anthropic = new Anthropic()
@@ -9,9 +11,63 @@ const LEVEL_LABELS: Record<number, string> = {
   3: 'mise en demeure (J+30)',
 }
 
+// Rate limiter in-memory : 10 requêtes par utilisateur par minute
+const rateMap = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT = 10
+const RATE_WINDOW_MS = 60_000
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now()
+  const entry = rateMap.get(userId)
+  if (!entry || now > entry.resetAt) {
+    rateMap.set(userId, { count: 1, resetAt: now + RATE_WINDOW_MS })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT) return false
+  entry.count++
+  return true
+}
+
 export async function POST(req: Request) {
   try {
+    const cookieStore = await cookies()
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          },
+        },
+      },
+    )
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (!checkRateLimit(user.id)) {
+      return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, { status: 429 })
+    }
+
     const { body, subject, userPrompt, client, montant, echeance, level } = await req.json()
+
+    // Validation des inputs
+    if (
+      typeof body !== 'string' || body.length > 4000 ||
+      typeof subject !== 'string' || subject.length > 200 ||
+      typeof userPrompt !== 'string' || userPrompt.length === 0 || userPrompt.length > 500 ||
+      typeof client !== 'string' || client.length > 200 ||
+      typeof montant !== 'string' || montant.length > 50 ||
+      typeof echeance !== 'string' || echeance.length > 50 ||
+      ![1, 2, 3].includes(level)
+    ) {
+      return NextResponse.json({ error: 'Paramètres invalides.' }, { status: 400 })
+    }
 
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',

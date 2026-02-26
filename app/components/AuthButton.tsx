@@ -27,7 +27,11 @@ export default function AuthButton() {
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'https://www.googleapis.com/auth/calendar.events',
+        queryParams: { access_type: 'offline' },
+      },
     })
   }
 
@@ -41,15 +45,61 @@ export default function AuthButton() {
   }
 
   if (user) {
+    const meta = user.user_metadata as { avatar_url?: string; full_name?: string; name?: string }
+    const avatarUrl = meta?.avatar_url
+    const firstName = (meta?.full_name ?? meta?.name ?? '').split(' ')[0]
+
     return (
-      <div className="flex items-center gap-3">
-        <span className="text-xs text-gray-400 hidden sm:block truncate max-w-[160px]">{user.email}</span>
-        <button
-          onClick={signOut}
-          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-gray-300 hover:text-gray-800 transition-all"
-        >
-          Se déconnecter
+      <div className="relative group">
+        {/* Trigger */}
+        <button className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              width={28}
+              height={28}
+              className="rounded-full shrink-0"
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-indigo-600">{firstName[0]?.toUpperCase() ?? '?'}</span>
+            </div>
+          )}
+          {firstName && (
+            <span className="text-xs text-gray-700 hidden sm:block">Bonjour, <span className="font-semibold">{firstName}</span></span>
+          )}
+          {/* Chevron */}
+          <svg className="w-3 h-3 text-gray-400 hidden sm:block transition-transform duration-150 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
         </button>
+
+        {/* Dropdown */}
+        <div className="absolute right-0 top-full pt-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-all duration-150 z-50">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[160px]">
+            <a
+              href="/dashboard"
+              className="flex items-center gap-2.5 px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Dashboard
+            </a>
+            <div className="border-t border-gray-100" />
+            <button
+              onClick={signOut}
+              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Se déconnecter
+            </button>
+          </div>
+        </div>
       </div>
     )
   }

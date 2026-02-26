@@ -7,6 +7,7 @@ import Nav from './components/Nav'
 import Hero from './components/Hero'
 import ProblemSection from './components/ProblemSection'
 import SolutionSection from './components/SolutionSection'
+import ShowcaseSection from './components/ShowcaseSection'
 import FormSection from './components/FormSection'
 import Footer from './components/Footer'
 import ResultsModal from './components/ResultsModal'
@@ -70,6 +71,7 @@ export default function Home() {
       <Hero />
       <ProblemSection />
       <SolutionSection />
+      <ShowcaseSection />
       <FormSection form={form} onChange={setForm} onSubmit={handleFormSubmit} />
       <Footer />
       <ResultsModal

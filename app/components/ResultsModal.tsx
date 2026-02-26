@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { EmailTemplate, FormState, formatDate, formatMontant } from '../lib/emails'
+import { createClient } from '../lib/supabase'
 
 interface Props {
   show: boolean
@@ -9,6 +10,7 @@ interface Props {
   emails: EmailTemplate[]
   form: FormState
   onRegenerateLevel: (level: number) => void
+  relanceId: string | null
 }
 
 function buildMailtoHref(to: string, subject: string, body: string) {
@@ -23,7 +25,7 @@ const rainbowBorder = (active: boolean): React.CSSProperties => ({
     : 'linear-gradient(white, white) padding-box, linear-gradient(135deg, #f97316, #ef4444, #a855f7, #3b82f6, #22d3ee) border-box',
 })
 
-export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel }: Props) {
+export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId }: Props) {
   const [copied, setCopied] = useState<number | null>(null)
   const [editedBodies, setEditedBodies] = useState<Record<number, string>>({})
   // Incrémenté à chaque regen d'un niveau — le changement de key remonte le nœud et relance l'animation CSS
@@ -37,6 +39,11 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
   const [toast, setToast] = useState<string | null>(null)
   const [toastClosing, setToastClosing] = useState(false)
 
+  // Dialog de fermeture — demande si des emails ont été envoyés manuellement
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [sentLevels, setSentLevels] = useState<number[]>([])    // envoyés via bouton "Envoyer"
+  const [manualSentLevels, setManualSentLevels] = useState<number[]>([]) // sélectionnés dans la dialog
+
   function showToast(message: string) {
     setToast(message)
     setToastClosing(false)
@@ -45,6 +52,11 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
       setTimeout(() => setToast(null), 320)
     }, 4500)
   }
+
+  // Ref qui suit relanceId en temps réel — évite la race condition où la modale
+  // s'ouvre avant que le prop soit mis à jour après l'insert async dans page.tsx
+  const relanceIdRef = useRef<string | null>(relanceId)
+  useEffect(() => { relanceIdRef.current = relanceId }, [relanceId])
 
   // Ref pour tracker les bodies précédents — ne reset que le niveau qui a changé
   const prevBodiesRef = useRef<Record<number, string>>({})
@@ -64,6 +76,48 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
       setEditedBodies(prev => ({ ...prev, ...changed }))
     }
   }, [emails])
+
+  function handleEnvoyer(level: number) {
+    const id = relanceIdRef.current
+    if (!id) return
+    createClient()
+      .from('envois')
+      .insert({ relance_id: id, niveau: level })
+      .then(({ error }) => { if (error) console.error('[envois insert]', error) })
+    setSentLevels(prev => prev.includes(level) ? prev : [...prev, level])
+  }
+
+  function handleClose() {
+    // Si connecté, ouvre la dialog pour capturer les envois manuels avant de fermer
+    if (relanceId) {
+      setManualSentLevels([])
+      setShowCloseDialog(true)
+      return
+    }
+    onClose()
+  }
+
+  function toggleManualLevel(level: number) {
+    setManualSentLevels(prev =>
+      prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level]
+    )
+  }
+
+  async function handleConfirmClose(withSave: boolean) {
+    setShowCloseDialog(false)
+    if (relanceId) {
+      const supabase = createClient()
+      if (withSave && manualSentLevels.length > 0) {
+        await Promise.all(
+          manualSentLevels.map(niveau =>
+            supabase.from('envois').insert({ relance_id: relanceId, niveau })
+          )
+        )
+      }
+      supabase.from('relances').update({ statut: 'consultee' }).eq('id', relanceId)
+    }
+    onClose()
+  }
 
   function handleCopy(level: number, subject: string) {
     navigator.clipboard.writeText(`Objet : ${subject}\n\n${editedBodies[level] ?? ''}`)
@@ -121,7 +175,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
     <>
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 md:p-4"
-        onClick={onClose}
+        onClick={handleClose}
       >
         <div
           className="bg-white w-full h-full md:rounded-2xl md:shadow-2xl md:max-w-7xl md:h-[80vh] flex flex-col overflow-hidden"
@@ -135,7 +189,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
               </p>
             </div>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors text-sm font-bold shrink-0"
               aria-label="Fermer"
             >
@@ -185,6 +239,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
                   {/* mailto: → ouvre l'app mail par défaut sur tous les OS/mobiles */}
                   <a
                     href={buildMailtoHref(form.emailClient, subject, editedBodies[level] ?? '')}
+                    onClick={() => handleEnvoyer(level)}
                     className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-all text-center no-underline"
                   >
                     Envoyer
@@ -245,6 +300,64 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
             className="bg-gray-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl text-center leading-relaxed max-w-sm pointer-events-auto"
           >
             {toast}
+          </div>
+        </div>
+      )}
+
+      {/* Dialog fermeture — demande si des emails ont été envoyés manuellement */}
+      {showCloseDialog && (
+        <div className="fixed inset-0 z-[65] flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
+            <div>
+              <p className="text-sm font-extrabold text-gray-900 mb-1">Avez-vous envoyé des emails via votre messagerie ?</p>
+              <p className="text-xs text-gray-400 leading-relaxed">Si vous avez copié-collé certains emails manuellement, cochez-les pour les enregistrer dans votre historique.</p>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {emails.map(({ level, label, dot }) => {
+                const alreadySent = sentLevels.includes(level)
+                const checked = manualSentLevels.includes(level) || alreadySent
+                return (
+                  <label
+                    key={level}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
+                      alreadySent
+                        ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed'
+                        : checked
+                        ? 'bg-indigo-50 border-indigo-300 cursor-pointer'
+                        : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={alreadySent}
+                      onChange={() => toggleManualLevel(level)}
+                      className="rounded accent-indigo-600"
+                    />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                    <span className="text-sm font-medium text-gray-700 flex-1">{label}</span>
+                    {alreadySent && <span className="text-xs text-gray-400 shrink-0">déjà enregistré</span>}
+                  </label>
+                )
+              })}
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleConfirmClose(false)}
+                className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Ignorer
+              </button>
+              <button
+                onClick={() => handleConfirmClose(true)}
+                disabled={manualSentLevels.length === 0}
+                className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Enregistrer
+              </button>
+            </div>
           </div>
         </div>
       )}

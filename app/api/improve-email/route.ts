@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     }
 
     // Plan check — IA réservée aux comptes Premium
-    const { getUserPlan } = await import('../lib/plan')
+    const { getUserPlan } = await import('../../lib/plan')
     const plan = await getUserPlan(user.id)
     if (plan !== 'premium') {
       return NextResponse.json({ error: 'premium_required' }, { status: 403 })

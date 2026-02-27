@@ -14,7 +14,7 @@ export default function SolutionSection() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {STEPS.map(({ n, title, desc }) => (
-            <div key={n} className="flex flex-col">
+            <div key={n} className="flex flex-col items-center text-center md:items-start md:text-left">
               <div className="w-11 h-11 rounded-full bg-indigo-600 text-white font-extrabold flex items-center justify-center mb-4 shrink-0">{n}</div>
               <h3 className="font-bold mb-2 text-gray-900">{title}</h3>
               <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>

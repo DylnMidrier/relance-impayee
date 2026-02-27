@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { EmailTemplate, FormState, formatDate, formatMontant } from '../lib/emails'
 import { createClient } from '../lib/supabase'
+import UpgradeModal from './UpgradeModal'
+import type { Plan } from '../dashboard/page'
 
 interface Props {
   show: boolean
@@ -11,6 +13,7 @@ interface Props {
   form: FormState
   onRegenerateLevel: (level: number) => void
   relanceId: string | null
+  plan: Plan
 }
 
 function buildMailtoHref(to: string, subject: string, body: string) {
@@ -25,7 +28,7 @@ const rainbowBorder = (active: boolean): React.CSSProperties => ({
     : 'linear-gradient(white, white) padding-box, linear-gradient(135deg, #f97316, #ef4444, #a855f7, #3b82f6, #22d3ee) border-box',
 })
 
-export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId }: Props) {
+export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId, plan }: Props) {
   const [copied, setCopied] = useState<number | null>(null)
   const [editedBodies, setEditedBodies] = useState<Record<number, string>>({})
   // Incrémenté à chaque regen d'un niveau — le changement de key remonte le nœud et relance l'animation CSS
@@ -38,6 +41,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
   const [aiLoadingLevel, setAiLoadingLevel] = useState<number | null>(null)
   const [toast, setToast] = useState<string | null>(null)
   const [toastClosing, setToastClosing] = useState(false)
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   // Dialog de fermeture — demande si des emails ont été envoyés manuellement
   const [showCloseDialog, setShowCloseDialog] = useState(false)
@@ -153,6 +157,11 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
       })
       const text = await res.text()
       const data = text ? JSON.parse(text) : {}
+      if (data.error === 'premium_required') {
+        closeIAModal()
+        setShowUpgrade(true)
+        return
+      }
       if (!res.ok || data.error) {
         console.error('[IA]', data.error ?? `HTTP ${res.status}`)
         showToast("Désolé, notre agent IA a rencontré quelques soucis ! Mais il sera très vite remis sur pieds 🔧")
@@ -212,16 +221,29 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
                     <span className="text-xs text-gray-400 truncate">{tone}</span>
                   </div>
                   {/* Bouton IA — gradient border arc-en-ciel via style prop */}
-                  <button
-                    onClick={() => { setActiveIALevel(level); setUserPrompt('') }}
-                    style={rainbowBorder(false)}
-                    className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-md text-indigo-600 hover:text-indigo-800 transition-colors"
-                  >
-                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2l2.09 6.26L21 12l-6.91 3.74L12 22l-2.09-6.26L3 12l6.91-3.74z"/>
-                    </svg>
-                    IA
-                  </button>
+                  {plan === 'free' ? (
+                    <button
+                      onClick={() => setShowUpgrade(true)}
+                      className="shrink-0 flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-md text-gray-400 border border-gray-200"
+                      title="Fonctionnalité Premium"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      IA
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => { setActiveIALevel(level); setUserPrompt('') }}
+                      style={rainbowBorder(false)}
+                      className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-md text-indigo-600 hover:text-indigo-800 transition-colors"
+                    >
+                      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2l2.09 6.26L21 12l-6.91 3.74L12 22l-2.09-6.26L3 12l6.91-3.74z"/>
+                      </svg>
+                      IA
+                    </button>
+                  )}
                 </div>
 
                 {/* Boutons d'action : Copier · Envoyer · Regénérer */}
@@ -361,6 +383,12 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
           </div>
         </div>
       )}
+
+      <UpgradeModal
+        show={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        feature="Personnalisation des emails par IA"
+      />
 
       {/* Modale IA — backdrop blur au-dessus de la modale principale */}
       {activeIALevel !== null && (

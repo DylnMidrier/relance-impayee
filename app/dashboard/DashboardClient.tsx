@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
-import type { Relance } from './page'
+import type { Relance, Plan } from './page'
+import UpgradeModal from '../components/UpgradeModal'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ const STATUS_OPTIONS = [
 
 // ─── component ───────────────────────────────────────────────────────────────
 
-export default function DashboardClient({ relances: initial }: { relances: Relance[] }) {
+export default function DashboardClient({ relances: initial, plan }: { relances: Relance[]; plan: Plan }) {
   const [relances, setRelances] = useState(initial)
   const [editingEvent, setEditingEvent] = useState<{
     relanceId: string; nomClient: string; numeroFacture: string | null; echeance: string; niveau: number
@@ -58,6 +59,7 @@ export default function DashboardClient({ relances: initial }: { relances: Relan
   const [gcalMsg, setGcalMsg] = useState<{ text: string; needsReauth?: boolean } | null>(null)
   const [deletingRelance, setDeletingRelance] = useState<{ relance: Relance; deleteGCal: boolean } | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -322,19 +324,32 @@ export default function DashboardClient({ relances: initial }: { relances: Relan
                 </div>
               )}
 
-              <button
-                onClick={handleGCalSync}
-                disabled={syncing}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-              >
-                <svg className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  {syncing
-                    ? <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    : <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  }
-                </svg>
-                {syncing ? 'Synchronisation…' : 'Sync Google Calendar'}
-              </button>
+              {plan === 'free' ? (
+                <button
+                  onClick={() => setShowUpgrade(true)}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 whitespace-nowrap"
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Sync Google Calendar
+                  <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full">Premium</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleGCalSync}
+                  disabled={syncing}
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  <svg className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    {syncing
+                      ? <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      : <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    }
+                  </svg>
+                  {syncing ? 'Synchronisation…' : 'Sync Google Calendar'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -426,7 +441,7 @@ export default function DashboardClient({ relances: initial }: { relances: Relan
                         ))}
                       </select>
                       <button
-                        onClick={() => setDeletingRelance({ relance, deleteGCal: (relance.gcal_event_ids?.length ?? 0) > 0 })}
+                        onClick={() => setDeletingRelance({ relance, deleteGCal: plan !== 'free' && (relance.gcal_event_ids?.length ?? 0) > 0 })}
                         title="Supprimer cette relance"
                         className="shrink-0 p-1.5 text-gray-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors"
                       >
@@ -471,8 +486,8 @@ export default function DashboardClient({ relances: initial }: { relances: Relan
                       </p>
                     </div>
 
-                    {/* Row 3 — supprimer GCal (si applicable) */}
-                    {status === 'payé' && (relance.gcal_event_ids?.length ?? 0) > 0 && (
+                    {/* Row 3 — supprimer GCal (si applicable, premium only) */}
+                    {status === 'payé' && (relance.gcal_event_ids?.length ?? 0) > 0 && plan !== 'free' && (
                       <button
                         onClick={() => handleDeleteGCalEvents(relance)}
                         className="mt-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors underline underline-offset-2"
@@ -529,6 +544,8 @@ export default function DashboardClient({ relances: initial }: { relances: Relan
         </div>
       )}
 
+      <UpgradeModal show={showUpgrade} onClose={() => setShowUpgrade(false)} feature="Synchronisation Google Calendar" />
+
       {/* ── Delete confirmation modal ─────────────────────────────────────── */}
       {deletingRelance && (
         <div
@@ -556,17 +573,27 @@ export default function DashboardClient({ relances: initial }: { relances: Relan
             </div>
 
             {(deletingRelance.relance.gcal_event_ids?.length ?? 0) > 0 && (
-              <label className="flex items-start gap-2.5 mb-4 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-100">
-                <input
-                  type="checkbox"
-                  checked={deletingRelance.deleteGCal}
-                  onChange={e => setDeletingRelance(prev => prev ? { ...prev, deleteGCal: e.target.checked } : null)}
-                  className="mt-0.5 accent-red-500 shrink-0"
-                />
-                <span className="text-xs text-gray-600 leading-relaxed">
-                  Supprimer également les rappels Google Calendar associés
-                </span>
-              </label>
+              plan === 'free' ? (
+                <div className="flex items-start gap-2.5 mb-4 p-3 rounded-xl bg-gray-50 border border-gray-100 opacity-50">
+                  <input type="checkbox" disabled className="mt-0.5 shrink-0" />
+                  <span className="text-xs text-gray-500 leading-relaxed flex-1">
+                    Supprimer également les rappels Google Calendar associés
+                  </span>
+                  <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full shrink-0">Premium</span>
+                </div>
+              ) : (
+                <label className="flex items-start gap-2.5 mb-4 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <input
+                    type="checkbox"
+                    checked={deletingRelance.deleteGCal}
+                    onChange={e => setDeletingRelance(prev => prev ? { ...prev, deleteGCal: e.target.checked } : null)}
+                    className="mt-0.5 accent-red-500 shrink-0"
+                  />
+                  <span className="text-xs text-gray-600 leading-relaxed">
+                    Supprimer également les rappels Google Calendar associés
+                  </span>
+                </label>
+              )
             )}
 
             <p className="text-xs text-gray-400 mb-5">Cette action est irréversible.</p>

@@ -11,6 +11,8 @@ import ShowcaseSection from './components/ShowcaseSection'
 import FormSection from './components/FormSection'
 import Footer from './components/Footer'
 import ResultsModal from './components/ResultsModal'
+import UpgradeModal from './components/UpgradeModal'
+import type { Plan } from './dashboard/page'
 
 export default function Home() {
   const [showModal, setShowModal] = useState(false)
@@ -19,6 +21,8 @@ export default function Home() {
   const [relanceId, setRelanceId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [toastClosing, setToastClosing] = useState(false)
+  const [userPlan, setUserPlan] = useState<Plan>('free')
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   function showToast(message: string, type: 'success' | 'error') {
     setToast({ message, type })
@@ -40,6 +44,23 @@ export default function Home() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+
+    // Fetch plan + check relance limit for free users
+    const { data: profileData } = await supabase.from('profiles').select('plan').eq('id', user.id).single()
+    const plan = (profileData?.plan ?? 'free') as Plan
+    setUserPlan(plan)
+
+    if (plan === 'free') {
+      const { count } = await supabase
+        .from('relances')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .neq('statut', 'payé')
+      if ((count ?? 0) >= 2) {
+        setShowUpgrade(true)
+        return
+      }
+    }
 
     const { data, error } = await supabase
       .from('relances')
@@ -82,6 +103,12 @@ export default function Home() {
         form={form}
         onRegenerateLevel={handleRegenerateLevel}
         relanceId={relanceId}
+        plan={userPlan}
+      />
+      <UpgradeModal
+        show={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        feature="Limite de 2 relances actives atteinte"
       />
 
       {/* Toast save — z-[80] pour passer au-dessus de la modale et du toast IA (z-[70]) */}

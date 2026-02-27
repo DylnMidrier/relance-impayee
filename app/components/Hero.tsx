@@ -46,7 +46,7 @@ export default function Hero() {
               href="#formulaire"
               className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3.5 rounded-xl shadow-lg shadow-indigo-300/50 transition-all hover:-translate-y-0.5 no-underline"
             >
-              Générer mes emails de relance →
+              Générer mes relances →
             </a>
             <p className="mt-4 text-sm text-gray-400">Gratuit · 30 secondes · Aucun compte requis</p>
           </div>

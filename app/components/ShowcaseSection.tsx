@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 const FEATURES = [
   {
     icon: (
@@ -70,16 +72,22 @@ export default function ShowcaseSection() {
               </div>
             ))}
 
-            <div className="pt-4">
+            <div className="pt-4 flex flex-col sm:flex-row gap-3">
               <a
                 href="#formulaire"
-                className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"
+                className="flex-1 flex items-center justify-center gap-2 border border-slate-600 hover:border-slate-400 text-slate-400 hover:text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"
               >
-                Essayer maintenant — c'est gratuit
+                Essayez gratuitement
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </a>
+              <Link
+                href="/pricing"
+                className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"
+              >
+                Passer Premium
+              </Link>
             </div>
           </div>
 

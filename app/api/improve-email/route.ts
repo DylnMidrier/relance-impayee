@@ -54,6 +54,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Trop de requêtes. Réessayez dans une minute.' }, { status: 429 })
     }
 
+    // Plan check — IA réservée aux comptes Premium
+    const { getUserPlan } = await import('../lib/plan')
+    const plan = await getUserPlan(user.id)
+    if (plan !== 'premium') {
+      return NextResponse.json({ error: 'premium_required' }, { status: 403 })
+    }
+
     const { body, subject, userPrompt, client, montant, echeance, level } = await req.json()
 
     // Validation des inputs

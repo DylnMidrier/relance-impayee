@@ -3,6 +3,8 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Nav from '../components/Nav'
 import DashboardClient from './DashboardClient'
+import { getUserPlan } from '../lib/plan'
+import type { Plan } from '../lib/plan'
 
 export type Envoi = {
   id: string
@@ -10,6 +12,8 @@ export type Envoi = {
   niveau: number
   created_at: string
 }
+
+export type { Plan }
 
 export type Relance = {
   id: string
@@ -43,16 +47,15 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const { data } = await supabase
-    .from('relances')
-    .select('*, envois(*)')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  const [{ data }, plan] = await Promise.all([
+    supabase.from('relances').select('*, envois(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
+    getUserPlan(user.id),
+  ])
 
   return (
     <>
       <Nav />
-      <DashboardClient relances={(data ?? []) as Relance[]} />
+      <DashboardClient relances={(data ?? []) as Relance[]} plan={plan} />
     </>
   )
 }

@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getUserPlan } from '../../lib/plan'
 
 const GCAL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
 
@@ -40,6 +41,9 @@ async function requireUser() {
 export async function POST(req: Request) {
   const user = await requireUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const plan = await getUserPlan(user.id)
+  if (plan !== 'premium') return NextResponse.json({ error: 'premium_required' }, { status: 403 })
 
   const { token, relances } = await req.json()
   if (!token || !Array.isArray(relances)) {

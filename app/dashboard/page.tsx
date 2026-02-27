@@ -14,6 +14,7 @@ export type Envoi = {
 export type Relance = {
   id: string
   nom_client: string
+  numero_facture: string | null
   montant: number | null
   date_echeance: string | null
   statut: string | null

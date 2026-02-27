@@ -46,6 +46,7 @@ export default function Home() {
       .insert({
         user_id: user.id,
         nom_client: form.client,
+        numero_facture: form.facture || null,
         montant: parseFloat(form.montant) || null,
         date_echeance: form.echeance || null,
       })

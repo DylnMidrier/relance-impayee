@@ -18,6 +18,10 @@ export default function Footer() {
           Confidentialité
         </Link>
         <span>·</span>
+        <Link href="/conditions-utilisation" className="text-white/50 hover:text-white transition-colors">
+          CGU
+        </Link>
+        <span>·</span>
         <MentionsLegales />
       </div>
     </footer>

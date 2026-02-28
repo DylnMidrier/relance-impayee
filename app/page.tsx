@@ -45,14 +45,14 @@ export default function Home() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Fetch plan + check relance limit for free users
+    // Fetch plan + check facture limit for free users
     const { data: profileData } = await supabase.from('profiles').select('plan').eq('id', user.id).single()
     const plan = (profileData?.plan ?? 'free') as Plan
     setUserPlan(plan)
 
     if (plan === 'free') {
       const { count } = await supabase
-        .from('relances')
+        .from('factures')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .neq('statut', 'payé')
@@ -63,10 +63,11 @@ export default function Home() {
     }
 
     const { data, error } = await supabase
-      .from('relances')
+      .from('factures')
       .insert({
         user_id: user.id,
         nom_client: form.client,
+        email_client: form.emailClient || null,
         numero_facture: form.facture || null,
         montant: parseFloat(form.montant) || null,
         date_echeance: form.echeance || null,
@@ -76,10 +77,26 @@ export default function Home() {
 
     if (error) {
       showToast('Impossible d\'enregistrer la relance. Réessayez plus tard.', 'error')
-    } else {
-      setRelanceId(data.id)
-      showToast('Relance enregistrée dans votre historique ✓', 'success')
+      return
     }
+
+    const factureId = data.id
+    setRelanceId(factureId)
+
+    // Créer les 3 relances planifiées
+    const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
+    const relancesData = [1, 2, 3].map(niveau => {
+      let date_planifiee: string | null = null
+      if (form.echeance) {
+        const d = new Date(form.echeance)
+        d.setDate(d.getDate() + LEVEL_OFFSETS[niveau])
+        date_planifiee = d.toISOString().split('T')[0]
+      }
+      return { facture_id: factureId, niveau, statut: 'planifiée', date_planifiee }
+    })
+    await supabase.from('relances').insert(relancesData)
+
+    showToast('Relance enregistrée dans votre historique ✓', 'success')
   }
 
   function handleRegenerateLevel(level: number) {

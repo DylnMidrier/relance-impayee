@@ -82,8 +82,10 @@ export default function PricingPage() {
               <div className="mb-6">
                 <p className="text-xs font-semibold text-indigo-300 uppercase tracking-widest mb-2">Premium</p>
                 <div className="flex items-end gap-1.5 mb-1">
-                  <span className="text-4xl font-extrabold text-white">9 €</span>
-                  <span className="text-indigo-300 text-sm pb-1.5">/mois</span>
+                  <span className="flex items-start leading-none font-extrabold text-white">
+                    <span className="text-4xl">9</span><span className="text-lg font-bold pt-0.5">,99 €</span>
+                  </span>
+                  <span className="text-indigo-300 text-sm pb-0.5">/mois</span>
                 </div>
                 <p className="text-sm text-indigo-300">Pour les freelances qui veulent tout.</p>
               </div>

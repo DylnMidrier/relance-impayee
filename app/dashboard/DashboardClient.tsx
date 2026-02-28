@@ -2,8 +2,10 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
-import type { Relance, Plan } from './page'
+import type { Facture, Relance, Plan } from './page'
+import { FormState, EmailTemplate, genEmails, genEmailLevel } from '../lib/emails'
 import UpgradeModal from '../components/UpgradeModal'
+import ResultsModal from '../components/ResultsModal'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,6 +42,7 @@ const LEVEL_COLORS: Record<number, { chip: string; dot: string }> = {
 }
 
 const LEVEL_LABELS: Record<number, string> = { 1: 'J+7', 2: 'J+15', 3: 'J+30' }
+const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
 
 const STATUS_OPTIONS = [
   { value: 'en_attente', label: 'En attente' },
@@ -49,66 +52,75 @@ const STATUS_OPTIONS = [
 
 // ─── component ───────────────────────────────────────────────────────────────
 
-export default function DashboardClient({ relances: initial, plan }: { relances: Relance[]; plan: Plan }) {
-  const [relances, setRelances] = useState(initial)
+export default function DashboardClient({ factures: initial, plan }: { factures: Facture[]; plan: Plan }) {
+  const [factures, setFactures] = useState(initial)
   const [editingEvent, setEditingEvent] = useState<{
-    relanceId: string; nomClient: string; numeroFacture: string | null; echeance: string; niveau: number
+    factureId: string; nomClient: string; numeroFacture: string | null; echeance: string; niveau: number
   } | null>(null)
   const [editDate, setEditDate] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [gcalMsg, setGcalMsg] = useState<{ text: string; needsReauth?: boolean } | null>(null)
-  const [deletingRelance, setDeletingRelance] = useState<{ relance: Relance; deleteGCal: boolean } | null>(null)
+  const [deletingFacture, setDeletingFacture] = useState<{ facture: Facture; deleteGCal: boolean } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
+
+  // ── Generate form ──────────────────────────────────────────────────────────
+  const emptyForm: FormState = { prenom: '', client: '', emailClient: '', facture: '', montant: '', echeance: '' }
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [generateForm, setGenerateForm] = useState<FormState>(emptyForm)
+  const [emails, setEmails] = useState<EmailTemplate[]>([])
+  const [generateFactureId, setGenerateFactureId] = useState<string | null>(null)
+  const [showResultsModal, setShowResultsModal] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [toastClosing, setToastClosing] = useState(false)
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     let enAttente = 0, enCours = 0, recupere = 0
-    for (const r of relances) {
-      if (r.statut === 'payé') recupere += r.montant ?? 0
-      else { enAttente += r.montant ?? 0; enCours++ }
+    for (const f of factures) {
+      if (f.statut === 'payé') recupere += f.montant ?? 0
+      else { enAttente += f.montant ?? 0; enCours++ }
     }
     return { enAttente, enCours, recupere }
-  }, [relances])
+  }, [factures])
 
   // ── GCal sync status ──────────────────────────────────────────────────────
   const { unsyncedCount, syncableTotal } = useMemo(() => {
-    const syncable = relances.filter(r => r.date_echeance && r.statut !== 'payé')
-    const unsynced = syncable.filter(r => !r.gcal_event_ids?.length)
+    const syncable = factures.filter(f => f.date_echeance && f.statut !== 'payé')
+    const unsynced = syncable.filter(f => !f.gcal_event_ids?.length)
     return { unsyncedCount: unsynced.length, syncableTotal: syncable.length }
-  }, [relances])
+  }, [factures])
 
   // ── Verify GCal events on mount ───────────────────────────────────────────
   useEffect(() => {
-    const relancesWithEvents = initial.filter(r => r.gcal_event_ids?.length)
-    if (!relancesWithEvents.length) return
+    const facturesWithEvents = initial.filter(f => f.gcal_event_ids?.length)
+    if (!facturesWithEvents.length) return
 
     async function verify() {
       const { data: { session } } = await createClient().auth.getSession()
       const token = session?.provider_token
       if (!token) return
 
-      const relanceIds: Record<string, string[]> = {}
-      for (const r of relancesWithEvents) relanceIds[r.id] = r.gcal_event_ids!
+      const factureIds: Record<string, string[]> = {}
+      for (const f of facturesWithEvents) factureIds[f.id] = f.gcal_event_ids!
 
       const res = await fetch('/api/google-calendar/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, relanceIds }),
+        body: JSON.stringify({ token, factureIds }),
       })
       if (!res.ok) return
 
-      const { missingRelanceIds } = await res.json() as { missingRelanceIds: string[] }
-      if (!missingRelanceIds.length) return
+      const { missingFactureIds } = await res.json() as { missingFactureIds: string[] }
+      if (!missingFactureIds.length) return
 
-      // Clear gcal_event_ids locally + in DB for relances whose events are gone
-      setRelances(prev => prev.map(r =>
-        missingRelanceIds.includes(r.id) ? { ...r, gcal_event_ids: null } : r
+      setFactures(prev => prev.map(f =>
+        missingFactureIds.includes(f.id) ? { ...f, gcal_event_ids: null } : f
       ))
       const supabase = createClient()
       await Promise.all(
-        missingRelanceIds.map(id =>
-          supabase.from('relances').update({ gcal_event_ids: null }).eq('id', id)
+        missingFactureIds.map(id =>
+          supabase.from('factures').update({ gcal_event_ids: null }).eq('id', id)
         )
       )
     }
@@ -122,38 +134,49 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
     const days = Array.from({ length: 30 }, (_, i) => {
       const d = new Date(today); d.setDate(today.getDate() + i); return d
     })
-    const eventsByDate: Record<string, Array<{ relance: Relance; niveau: number; sent: boolean }>> = {}
-    for (const relance of relances) {
-      if (!relance.date_echeance || relance.statut === 'payé') continue
+    const eventsByDate: Record<string, Array<{ facture: Facture; niveau: number; sent: boolean }>> = {}
+    for (const facture of factures) {
+      if (!facture.date_echeance || facture.statut === 'payé') continue
       for (const [offset, niveau] of [[7, 1], [15, 2], [30, 3]] as [number, number][]) {
-        const key = addDays(relance.date_echeance, offset)
+        const key = addDays(facture.date_echeance, offset)
         if (!eventsByDate[key]) eventsByDate[key] = []
-        const sent = (relance.envois ?? []).some(e => e.niveau === niveau)
-        eventsByDate[key].push({ relance, niveau, sent })
+        const sent = (facture.relances ?? []).some(r => r.niveau === niveau && r.statut === 'envoyée')
+        eventsByDate[key].push({ facture, niveau, sent })
       }
     }
     return { days, eventsByDate }
-  }, [relances])
+  }, [factures])
 
   const todayKey = isoDate(new Date())
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   async function handleStatusChange(id: string, statut: string) {
-    setRelances(prev => prev.map(r => r.id === id ? { ...r, statut } : r))
-    await createClient().from('relances').update({ statut }).eq('id', id)
+    setFactures(prev => prev.map(f => f.id === id ? { ...f, statut } : f))
+    await createClient().from('factures').update({ statut }).eq('id', id)
   }
 
-  function openEditEvent(relance: Relance, niveau: number) {
-    setEditingEvent({ relanceId: relance.id, nomClient: relance.nom_client, numeroFacture: relance.numero_facture ?? null, echeance: relance.date_echeance ?? '', niveau })
-    setEditDate(relance.date_echeance ?? '')
+  function openEditEvent(facture: Facture, niveau: number) {
+    setEditingEvent({ factureId: facture.id, nomClient: facture.nom_client, numeroFacture: facture.numero_facture ?? null, echeance: facture.date_echeance ?? '', niveau })
+    setEditDate(facture.date_echeance ?? '')
   }
 
   async function handleDateSave() {
     if (!editingEvent || !editDate) return
-    setRelances(prev => prev.map(r =>
-      r.id === editingEvent.relanceId ? { ...r, date_echeance: editDate } : r
+    const supabase = createClient()
+    await supabase.from('factures').update({ date_echeance: editDate }).eq('id', editingEvent.factureId)
+    await Promise.all(
+      ([1, 2, 3] as const).map(n =>
+        supabase.from('relances')
+          .update({ date_planifiee: addDays(editDate, LEVEL_OFFSETS[n]) })
+          .eq('facture_id', editingEvent.factureId)
+          .eq('niveau', n)
+      )
+    )
+    setFactures(prev => prev.map(f =>
+      f.id === editingEvent.factureId
+        ? { ...f, date_echeance: editDate, relances: f.relances.map(r => ({ ...r, date_planifiee: addDays(editDate, LEVEL_OFFSETS[r.niveau]) })) }
+        : f
     ))
-    await createClient().from('relances').update({ date_echeance: editDate }).eq('id', editingEvent.relanceId)
     setEditingEvent(null)
   }
 
@@ -165,11 +188,11 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
       setGcalMsg({ text: 'Reconnectez-vous pour autoriser l\'accès Google Calendar.' })
       setSyncing(false); return
     }
-    const toSync = relances.filter(r => r.date_echeance && r.statut !== 'payé')
+    const toSync = factures.filter(f => f.date_echeance && f.statut !== 'payé')
     const res = await fetch('/api/google-calendar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, relances: toSync }),
+      body: JSON.stringify({ token, factures: toSync }),
     })
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { error?: string }
@@ -184,10 +207,10 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
     const supabase = createClient()
     await Promise.all(
       Object.entries(eventIds).map(([id, ids]) =>
-        supabase.from('relances').update({ gcal_event_ids: ids }).eq('id', id)
+        supabase.from('factures').update({ gcal_event_ids: ids }).eq('id', id)
       )
     )
-    setRelances(prev => prev.map(r => eventIds[r.id] ? { ...r, gcal_event_ids: eventIds[r.id] } : r))
+    setFactures(prev => prev.map(f => eventIds[f.id] ? { ...f, gcal_event_ids: eventIds[f.id] } : f))
     setSyncing(false)
   }
 
@@ -202,56 +225,156 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
     })
   }
 
-  async function handleDeleteGCalEvents(relance: Relance) {
-    if (!relance.gcal_event_ids?.length) return
+  async function handleDeleteGCalEvents(facture: Facture) {
+    if (!facture.gcal_event_ids?.length) return
     const { data: { session } } = await createClient().auth.getSession()
     const token = session?.provider_token
     if (!token) return
     await fetch('/api/google-calendar', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, eventIds: relance.gcal_event_ids }),
+      body: JSON.stringify({ token, eventIds: facture.gcal_event_ids }),
     })
-    await createClient().from('relances').update({ gcal_event_ids: null }).eq('id', relance.id)
-    setRelances(prev => prev.map(r => r.id === relance.id ? { ...r, gcal_event_ids: null } : r))
+    await createClient().from('factures').update({ gcal_event_ids: null }).eq('id', facture.id)
+    setFactures(prev => prev.map(f => f.id === facture.id ? { ...f, gcal_event_ids: null } : f))
   }
 
-  async function confirmDeleteRelance() {
-    if (!deletingRelance) return
+  async function confirmDeleteFacture() {
+    if (!deletingFacture) return
     setDeleting(true)
-    const { relance, deleteGCal } = deletingRelance
+    const { facture, deleteGCal } = deletingFacture
 
-    if (deleteGCal && relance.gcal_event_ids?.length) {
+    if (deleteGCal && facture.gcal_event_ids?.length) {
       const { data: { session } } = await createClient().auth.getSession()
       const token = session?.provider_token
       if (token) {
         await fetch('/api/google-calendar', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, eventIds: relance.gcal_event_ids }),
+          body: JSON.stringify({ token, eventIds: facture.gcal_event_ids }),
         })
       }
     }
 
-    await createClient().from('relances').delete().eq('id', relance.id)
-    setRelances(prev => prev.filter(r => r.id !== relance.id))
-    setDeletingRelance(null)
+    await createClient().from('factures').delete().eq('id', facture.id) // cascade → relances supprimées
+    setFactures(prev => prev.filter(f => f.id !== facture.id))
+    setDeletingFacture(null)
     setDeleting(false)
+  }
+
+  // ── Toggle envoi ──────────────────────────────────────────────────────────
+  async function handleToggleEnvoi(facture: Facture, niveau: number) {
+    const rel = (facture.relances ?? []).find(r => r.niveau === niveau)
+    if (!rel) return
+    const isSent = rel.statut === 'envoyée'
+    const newStatut = isSent ? 'planifiée' : 'envoyée'
+    const newDateEnvoi = isSent ? null : new Date().toISOString()
+    await createClient().from('relances').update({ statut: newStatut, date_envoi: newDateEnvoi }).eq('id', rel.id)
+    setFactures(prev => prev.map(f =>
+      f.id === facture.id
+        ? { ...f, relances: f.relances.map(r => r.id === rel.id ? { ...r, statut: newStatut as Relance['statut'], date_envoi: newDateEnvoi } : r) }
+        : f
+    ))
+  }
+
+  // ── Generate handlers ─────────────────────────────────────────────────────
+  function showToast(message: string, type: 'success' | 'error') {
+    setToast({ message, type })
+    setToastClosing(false)
+    setTimeout(() => { setToastClosing(true); setTimeout(() => setToast(null), 320) }, 4000)
+  }
+
+  async function handleGenerateSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setEmails(genEmails(generateForm.prenom, generateForm.client, generateForm.facture, generateForm.montant, generateForm.echeance))
+    setGenerateFactureId(null)
+    setShowGenerateModal(false)
+    setShowResultsModal(true)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    if (plan === 'free') {
+      const { count } = await supabase
+        .from('factures')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .neq('statut', 'payé')
+      if ((count ?? 0) >= 2) { setShowUpgrade(true); return }
+    }
+
+    const { data: factureData, error } = await supabase
+      .from('factures')
+      .insert({
+        user_id: user.id,
+        nom_client: generateForm.client,
+        email_client: generateForm.emailClient || null,
+        numero_facture: generateForm.facture || null,
+        montant: parseFloat(generateForm.montant) || null,
+        date_echeance: generateForm.echeance || null,
+      })
+      .select('id')
+      .single()
+
+    if (error || !factureData) {
+      showToast('Impossible d\'enregistrer la relance.', 'error')
+      return
+    }
+
+    const relancesInsert = ([1, 2, 3] as const).map(n => ({
+      facture_id: factureData.id,
+      niveau: n,
+      statut: 'planifiée',
+      date_planifiee: generateForm.echeance ? addDays(generateForm.echeance, LEVEL_OFFSETS[n]) : null,
+    }))
+    const { data: relancesData } = await supabase.from('relances').insert(relancesInsert).select()
+
+    setGenerateFactureId(factureData.id)
+    setFactures(prev => [{
+      id: factureData.id,
+      nom_client: generateForm.client,
+      email_client: generateForm.emailClient || null,
+      numero_facture: generateForm.facture || null,
+      montant: parseFloat(generateForm.montant) || null,
+      date_echeance: generateForm.echeance || null,
+      statut: 'en_attente',
+      created_at: new Date().toISOString(),
+      gcal_event_ids: null,
+      relances: (relancesData ?? []) as Relance[],
+    } as Facture, ...prev])
+    showToast('Relance enregistrée ✓', 'success')
+  }
+
+  function handleRegenerateLevel(level: number) {
+    const newEmail = genEmailLevel(level as 1 | 2 | 3, generateForm.prenom, generateForm.client, generateForm.facture, generateForm.montant, generateForm.echeance)
+    setEmails(prev => prev.map(e => e.level === level ? newEmail : e))
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-gray-50 pb-16">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        <a
-          href="/"
-          className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-indigo-600 transition-colors no-underline"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Retour à l'accueil
-        </a>
+        <div className="flex items-center justify-between">
+          <a
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-indigo-600 transition-colors no-underline"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Retour à l'accueil
+          </a>
+          <button
+            onClick={() => { setGenerateForm(emptyForm); setShowGenerateModal(true) }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Générer une relance
+          </button>
+        </div>
 
         {/* ── KPI summary ─────────────────────────────────────────────────── */}
         <section className="grid grid-cols-3 gap-3 sm:gap-4">
@@ -286,7 +409,6 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
               <p className="text-xs text-gray-400 mt-0.5">Rappels calculés depuis la date d'échéance · J+7 · J+15 · J+30</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {/* Sync status pill */}
               {!gcalMsg && syncableTotal > 0 && (
                 unsyncedCount > 0 ? (
                   <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
@@ -306,7 +428,6 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
                 )
               )}
 
-              {/* Error message */}
               {gcalMsg && (
                 <div className="flex items-center gap-2 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full px-3 py-1.5">
                   <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -370,16 +491,16 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
                       {day.getDate()}
                     </div>
                     <div className="flex flex-col gap-1 w-full">
-                      {events.map(({ relance, niveau, sent }) => (
+                      {events.map(({ facture, niveau, sent }) => (
                         <button
-                          key={`${relance.id}-${niveau}`}
-                          onClick={() => openEditEvent(relance, niveau)}
-                          title={`${relance.nom_client} — Niveau ${niveau} (${LEVEL_LABELS[niveau]})\nCliquer pour modifier l'échéance`}
+                          key={`${facture.id}-${niveau}`}
+                          onClick={() => openEditEvent(facture, niveau)}
+                          title={`${facture.nom_client} — Niveau ${niveau} (${LEVEL_LABELS[niveau]})\nCliquer pour modifier l'échéance`}
                           className={`text-[10px] font-medium px-1 py-0.5 rounded text-left leading-tight w-full truncate transition-opacity hover:opacity-80 ${
                             sent ? 'opacity-35' : ''
                           } ${LEVEL_COLORS[niveau].chip}`}
                         >
-                          {LEVEL_LABELS[niveau]} {relance.nom_client.split(' ')[0]}
+                          {LEVEL_LABELS[niveau]} {facture.nom_client.split(' ')[0]}
                         </button>
                       ))}
                     </div>
@@ -403,31 +524,31 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
           </div>
         </section>
 
-        {/* ── Relance history ─────────────────────────────────────────────── */}
+        {/* ── Historique ──────────────────────────────────────────────────── */}
         <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-900">Historique des relances</h2>
+            <h2 className="text-sm font-bold text-gray-900">Historique des factures</h2>
           </div>
 
-          {relances.length === 0 ? (
+          {factures.length === 0 ? (
             <div className="px-5 py-14 text-center text-sm text-gray-400">
               Aucune relance pour l'instant.<br />
               <span className="text-gray-300">Générez vos premiers emails depuis la page d'accueil.</span>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {relances.map(relance => {
-                const status = normalizeStatus(relance.statut)
+              {factures.map(facture => {
+                const status = normalizeStatus(facture.statut)
                 return (
-                  <div key={relance.id} className="px-4 sm:px-5 py-3.5">
+                  <div key={facture.id} className="px-4 sm:px-5 py-3.5">
                     {/* Row 1 — nom + select statut + supprimer */}
                     <div className="flex items-center gap-2 min-w-0 mb-2">
                       <p className="text-sm font-semibold text-gray-900 truncate flex-1 min-w-0">
-                        {relance.nom_client}
+                        {facture.nom_client}
                       </p>
                       <select
                         value={status}
-                        onChange={e => handleStatusChange(relance.id, e.target.value)}
+                        onChange={e => handleStatusChange(facture.id, e.target.value)}
                         className={`shrink-0 text-xs font-medium px-2 py-1.5 rounded-lg border cursor-pointer appearance-none transition-colors ${
                           status === 'payé'
                             ? 'border-green-200 bg-green-50 text-green-700'
@@ -441,7 +562,7 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
                         ))}
                       </select>
                       <button
-                        onClick={() => setDeletingRelance({ relance, deleteGCal: plan !== 'free' && (relance.gcal_event_ids?.length ?? 0) > 0 })}
+                        onClick={() => setDeletingFacture({ facture, deleteGCal: plan !== 'free' && (facture.gcal_event_ids?.length ?? 0) > 0 })}
                         title="Supprimer cette relance"
                         className="shrink-0 p-1.5 text-gray-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors"
                       >
@@ -453,43 +574,51 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
 
                     {/* Row 2 — facture badge + N badges + métadonnées */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {relance.numero_facture && (
+                      {facture.numero_facture && (
                         <span className="text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
-                          {relance.numero_facture}
+                          {facture.numero_facture}
                         </span>
                       )}
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-start gap-2 shrink-0">
                         {([1, 2, 3] as const).map(n => {
-                          const sent = (relance.envois ?? []).some(e => e.niveau === n)
+                          const sent = (facture.relances ?? []).some(r => r.niveau === n && r.statut === 'envoyée')
+                          const dateStr = facture.date_echeance ? addDays(facture.date_echeance, LEVEL_OFFSETS[n]) : null
+                          const dateLabel = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
                           return (
-                            <span
-                              key={n}
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                sent ? LEVEL_COLORS[n].chip : 'bg-gray-100 text-gray-300'
-                              }`}
-                            >
-                              N{n}
-                            </span>
+                            <div key={n} className="flex flex-col items-center gap-0.5">
+                              <button
+                                onClick={() => handleToggleEnvoi(facture, n)}
+                                title={sent ? `Annuler N${n}` : `Marquer N${n} comme envoyé`}
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-all cursor-pointer hover:scale-110 ${
+                                  sent ? LEVEL_COLORS[n].chip : 'bg-gray-100 text-gray-300 hover:bg-gray-200 hover:text-gray-400'
+                                }`}
+                              >
+                                N{n}
+                              </button>
+                              {dateLabel && (
+                                <span className="text-[9px] text-gray-300 leading-none">{dateLabel}</span>
+                              )}
+                            </div>
                           )
                         })}
                       </div>
                       <p className="text-xs flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-gray-700">{relance.montant != null ? formatEuro(relance.montant) : '—'}</span>
-                        {relance.date_echeance && (
+                        <span className="font-semibold text-gray-700">{facture.montant != null ? formatEuro(facture.montant) : '—'}</span>
+                        {facture.date_echeance && (
                           <>
                             <span className="text-gray-300">·</span>
-                            <span className="text-gray-500">Échéance {formatDateShort(relance.date_echeance)}</span>
+                            <span className="text-gray-500">Échéance {formatDateShort(facture.date_echeance)}</span>
                           </>
                         )}
                         <span className="text-gray-300">·</span>
-                        <span className="text-gray-400">{new Date(relance.created_at).toLocaleDateString('fr-FR')}</span>
+                        <span className="text-gray-400">{new Date(facture.created_at).toLocaleDateString('fr-FR')}</span>
                       </p>
                     </div>
 
-                    {/* Row 3 — supprimer GCal (si applicable, premium only) */}
-                    {status === 'payé' && (relance.gcal_event_ids?.length ?? 0) > 0 && plan !== 'free' && (
+                    {/* Row 3 — supprimer GCal (premium only) */}
+                    {status === 'payé' && (facture.gcal_event_ids?.length ?? 0) > 0 && plan !== 'free' && (
                       <button
-                        onClick={() => handleDeleteGCalEvents(relance)}
+                        onClick={() => handleDeleteGCalEvents(facture)}
                         className="mt-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors underline underline-offset-2"
                       >
                         Supprimer rappels Calendar
@@ -546,11 +675,84 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
 
       <UpgradeModal show={showUpgrade} onClose={() => setShowUpgrade(false)} feature="Synchronisation Google Calendar" />
 
-      {/* ── Delete confirmation modal ─────────────────────────────────────── */}
-      {deletingRelance && (
+      {/* ── Generate modal ───────────────────────────────────────────────── */}
+      {showGenerateModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-          onClick={e => { if (e.target === e.currentTarget && !deleting) setDeletingRelance(null) }}
+          onClick={e => { if (e.target === e.currentTarget) setShowGenerateModal(false) }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900">Générer une relance</h3>
+              <button onClick={() => setShowGenerateModal(false)} className="text-gray-300 hover:text-gray-500 transition-colors">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <form onSubmit={handleGenerateSubmit} className="px-6 py-5 space-y-4">
+              {([
+                { id: 'prenom',      label: 'Votre prénom',    type: 'text',   placeholder: 'Ex : Marie',                    required: true },
+                { id: 'client',      label: 'Nom du client',   type: 'text',   placeholder: 'Ex : Agence Dupont',            required: true },
+                { id: 'emailClient', label: 'Email du client', type: 'email',  placeholder: 'Ex : contact@agencedupont.fr', required: false },
+                { id: 'facture',     label: 'N° de facture',   type: 'text',   placeholder: 'Ex : 2024-089',                required: false },
+                { id: 'montant',     label: 'Montant (€)',     type: 'number', placeholder: 'Ex : 1500',                    required: true },
+                { id: 'echeance',    label: "Date d'échéance", type: 'date',   placeholder: '',                             required: true },
+              ] as const).map(({ id, label, type, placeholder, required }) => (
+                <div key={id}>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">{label}</label>
+                  <input
+                    type={type}
+                    placeholder={placeholder}
+                    required={required}
+                    min={type === 'number' ? 1 : undefined}
+                    value={generateForm[id]}
+                    onChange={e => setGenerateForm(prev => ({ ...prev, [id]: e.target.value }))}
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all placeholder:text-gray-300 [&[type=date]]:pr-2"
+                  />
+                </div>
+              ))}
+              <button
+                type="submit"
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors mt-2"
+              >
+                Générer mes 3 emails →
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <ResultsModal
+        show={showResultsModal}
+        onClose={() => setShowResultsModal(false)}
+        emails={emails}
+        form={generateForm}
+        onRegenerateLevel={handleRegenerateLevel}
+        relanceId={generateFactureId}
+        plan={plan}
+        onSent={(id, levels) => setFactures(prev => prev.map(f =>
+          f.id === id
+            ? { ...f, relances: f.relances.map(r => levels.includes(r.niveau) ? { ...r, statut: 'envoyée' as const, date_envoi: new Date().toISOString() } : r) }
+            : f
+        ))}
+      />
+
+      {/* ── Toast ────────────────────────────────────────────────────────── */}
+      {toast && (
+        <div className="fixed bottom-6 left-0 right-0 z-[80] flex justify-center px-4 pointer-events-none">
+          <div
+            style={{ animation: `${toastClosing ? 'toast-out' : 'toast-in'} 0.32s ease-out forwards` }}
+            className={`text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl pointer-events-auto ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-500'}`}
+          >
+            {toast.message}
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete confirmation modal ─────────────────────────────────────── */}
+      {deletingFacture && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          onClick={e => { if (e.target === e.currentTarget && !deleting) setDeletingFacture(null) }}
         >
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-4">
@@ -562,17 +764,17 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Supprimer la relance</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {deletingRelance.relance.nom_client}
-                  {deletingRelance.relance.numero_facture && (
+                  {deletingFacture.facture.nom_client}
+                  {deletingFacture.facture.numero_facture && (
                     <span className="ml-1.5 text-[10px] font-medium text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">
-                      {deletingRelance.relance.numero_facture}
+                      {deletingFacture.facture.numero_facture}
                     </span>
                   )}
                 </p>
               </div>
             </div>
 
-            {(deletingRelance.relance.gcal_event_ids?.length ?? 0) > 0 && (
+            {(deletingFacture.facture.gcal_event_ids?.length ?? 0) > 0 && (
               plan === 'free' ? (
                 <div className="flex items-start gap-2.5 mb-4 p-3 rounded-xl bg-gray-50 border border-gray-100 opacity-50">
                   <input type="checkbox" disabled className="mt-0.5 shrink-0" />
@@ -585,8 +787,8 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
                 <label className="flex items-start gap-2.5 mb-4 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-100">
                   <input
                     type="checkbox"
-                    checked={deletingRelance.deleteGCal}
-                    onChange={e => setDeletingRelance(prev => prev ? { ...prev, deleteGCal: e.target.checked } : null)}
+                    checked={deletingFacture.deleteGCal}
+                    onChange={e => setDeletingFacture(prev => prev ? { ...prev, deleteGCal: e.target.checked } : null)}
                     className="mt-0.5 accent-red-500 shrink-0"
                   />
                   <span className="text-xs text-gray-600 leading-relaxed">
@@ -600,14 +802,14 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
 
             <div className="flex gap-2 justify-end">
               <button
-                onClick={() => setDeletingRelance(null)}
+                onClick={() => setDeletingFacture(null)}
                 disabled={deleting}
                 className="text-xs px-4 py-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
                 Annuler
               </button>
               <button
-                onClick={confirmDeleteRelance}
+                onClick={confirmDeleteFacture}
                 disabled={deleting}
                 className="text-xs px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors disabled:opacity-50"
               >

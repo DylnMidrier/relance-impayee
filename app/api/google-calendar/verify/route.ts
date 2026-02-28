@@ -25,26 +25,26 @@ async function requireUser() {
 }
 
 // POST — vérifier quels event IDs existent encore dans Google Calendar
-// Body: { token: string, relanceIds: Record<string, string[]> }
-// Response: { missingRelanceIds: string[] }
+// Body: { token: string, factureIds: Record<string, string[]> }
+// Response: { missingFactureIds: string[] }
 export async function POST(req: Request) {
   const user = await requireUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { token, relanceIds } = await req.json() as {
+  const { token, factureIds } = await req.json() as {
     token: string
-    relanceIds: Record<string, string[]>
+    factureIds: Record<string, string[]>
   }
-  if (!token || typeof relanceIds !== 'object') {
+  if (!token || typeof factureIds !== 'object') {
     return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
   }
 
-  const missingRelanceIds: string[] = []
+  const missingFactureIds: string[] = []
 
-  // Check all event IDs in parallel — if any event of a relance is missing/cancelled, relance is unsynced
+  // Check all event IDs in parallel — if any event of a facture is missing/cancelled, facture is unsynced
   // Google returns 200 + status:"cancelled" for soft-deleted events, 410 for hard-deleted, 404 for unknown
   await Promise.all(
-    Object.entries(relanceIds).map(async ([relanceId, eventIds]) => {
+    Object.entries(factureIds).map(async ([factureId, eventIds]) => {
       const checks = await Promise.all(
         eventIds.map(async id => {
           const res = await fetch(`${GCAL}/${id}`, {
@@ -58,9 +58,9 @@ export async function POST(req: Request) {
           return false // autre erreur (ex: 403 token invalide) → on ne marque pas comme manquant
         })
       )
-      if (checks.some(Boolean)) missingRelanceIds.push(relanceId)
+      if (checks.some(Boolean)) missingFactureIds.push(factureId)
     })
   )
 
-  return NextResponse.json({ missingRelanceIds })
+  return NextResponse.json({ missingFactureIds })
 }

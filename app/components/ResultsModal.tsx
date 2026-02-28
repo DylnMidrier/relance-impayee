@@ -14,6 +14,7 @@ interface Props {
   onRegenerateLevel: (level: number) => void
   relanceId: string | null
   plan: Plan
+  onSent?: (relanceId: string, levels: number[]) => void
 }
 
 function buildMailtoHref(to: string, subject: string, body: string) {
@@ -28,7 +29,7 @@ const rainbowBorder = (active: boolean): React.CSSProperties => ({
     : 'linear-gradient(white, white) padding-box, linear-gradient(135deg, #f97316, #ef4444, #a855f7, #3b82f6, #22d3ee) border-box',
 })
 
-export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId, plan }: Props) {
+export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId, plan, onSent }: Props) {
   const [copied, setCopied] = useState<number | null>(null)
   const [editedBodies, setEditedBodies] = useState<Record<number, string>>({})
   // Incrémenté à chaque regen d'un niveau — le changement de key remonte le nœud et relance l'animation CSS
@@ -85,9 +86,11 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
     const id = relanceIdRef.current
     if (!id) return
     createClient()
-      .from('envois')
-      .insert({ relance_id: id, niveau: level })
-      .then(({ error }) => { if (error) console.error('[envois insert]', error) })
+      .from('relances')
+      .update({ statut: 'envoyée', date_envoi: new Date().toISOString().split('T')[0] })
+      .eq('facture_id', id)
+      .eq('niveau', level)
+      .then(({ error }) => { if (error) console.error('[relances update]', error) })
     setSentLevels(prev => prev.includes(level) ? prev : [...prev, level])
   }
 
@@ -114,11 +117,16 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
       if (withSave && manualSentLevels.length > 0) {
         await Promise.all(
           manualSentLevels.map(niveau =>
-            supabase.from('envois').insert({ relance_id: relanceId, niveau })
+            supabase
+              .from('relances')
+              .update({ statut: 'envoyée', date_envoi: new Date().toISOString().split('T')[0] })
+              .eq('facture_id', relanceId)
+              .eq('niveau', niveau)
           )
         )
       }
-      supabase.from('relances').update({ statut: 'consultee' }).eq('id', relanceId)
+      const allSent = [...sentLevels, ...(withSave ? manualSentLevels : [])]
+      if (allSent.length > 0) onSent?.(relanceId, allSent)
     }
     onClose()
   }

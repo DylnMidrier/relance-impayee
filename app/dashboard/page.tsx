@@ -6,26 +6,30 @@ import DashboardClient from './DashboardClient'
 import { getUserPlan } from '../lib/plan'
 import type { Plan } from '../lib/plan'
 
-export type Envoi = {
+export type Relance = {
   id: string
-  relance_id: string
+  facture_id: string
   niveau: number
+  statut: 'planifiée' | 'envoyée'
+  date_planifiee: string | null
+  date_envoi: string | null
   created_at: string
 }
 
-export type { Plan }
-
-export type Relance = {
+export type Facture = {
   id: string
   nom_client: string
+  email_client: string | null
   numero_facture: string | null
   montant: number | null
   date_echeance: string | null
   statut: string | null
   created_at: string
   gcal_event_ids: string[] | null
-  envois: Envoi[]
+  relances: Relance[]
 }
+
+export type { Plan }
 
 export default async function DashboardPage() {
   const cookieStore = await cookies()
@@ -48,14 +52,14 @@ export default async function DashboardPage() {
   if (!user) redirect('/')
 
   const [{ data }, plan] = await Promise.all([
-    supabase.from('relances').select('*, envois(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
+    supabase.from('factures').select('*, relances(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
     getUserPlan(user.id),
   ])
 
   return (
     <>
       <Nav />
-      <DashboardClient relances={(data ?? []) as Relance[]} plan={plan} />
+      <DashboardClient factures={(data ?? []) as Facture[]} plan={plan} />
     </>
   )
 }

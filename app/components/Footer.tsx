@@ -14,6 +14,10 @@ export default function Footer() {
           contact@recouvr.io
         </a>
         <span>·</span>
+        <Link href="/politique-confidentialite" className="text-white/50 hover:text-white transition-colors">
+          Confidentialité
+        </Link>
+        <span>·</span>
         <MentionsLegales />
       </div>
     </footer>

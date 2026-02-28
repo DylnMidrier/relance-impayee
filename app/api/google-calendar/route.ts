@@ -45,19 +45,19 @@ export async function POST(req: Request) {
   const plan = await getUserPlan(user.id)
   if (plan !== 'premium') return NextResponse.json({ error: 'premium_required' }, { status: 403 })
 
-  const { token, relances } = await req.json()
-  if (!token || !Array.isArray(relances)) {
+  const { token, factures } = await req.json()
+  if (!token || !Array.isArray(factures)) {
     return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
   }
 
   const eventIds: Record<string, string[]> = {}
 
-  for (const relance of relances) {
-    if (!relance.date_echeance) continue
+  for (const facture of factures) {
+    if (!facture.date_echeance) continue
     const ids: string[] = []
 
     for (const [offset, niveau] of [[7, 1], [15, 2], [30, 3]] as [number, number][]) {
-      const date = addDays(relance.date_echeance, offset)
+      const date = addDays(facture.date_echeance, offset)
       const res = await fetch(GCAL, {
         method: 'POST',
         headers: {
@@ -65,9 +65,9 @@ export async function POST(req: Request) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          summary: `${LEVEL_NAMES[niveau]} — ${relance.nom_client}`,
-          description: relance.montant
-            ? `Facture de ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(relance.montant)}`
+          summary: `${LEVEL_NAMES[niveau]} — ${facture.nom_client}`,
+          description: facture.montant
+            ? `Facture de ${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(facture.montant)}`
             : undefined,
           start: { date },
           end: { date },
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
       }
     }
 
-    if (ids.length) eventIds[relance.id] = ids
+    if (ids.length) eventIds[facture.id] = ids
   }
 
   return NextResponse.json({ eventIds })

@@ -454,7 +454,7 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
                     {/* Row 2 — facture badge + N badges + métadonnées */}
                     <div className="flex items-center gap-2 flex-wrap">
                       {relance.numero_facture && (
-                        <span className="text-[10px] font-medium text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">
+                        <span className="text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
                           {relance.numero_facture}
                         </span>
                       )}
@@ -473,16 +473,16 @@ export default function DashboardClient({ relances: initial, plan }: { relances:
                           )
                         })}
                       </div>
-                      <p className="text-xs text-gray-400 flex items-center gap-1.5 flex-wrap">
-                        <span>{relance.montant != null ? formatEuro(relance.montant) : '—'}</span>
+                      <p className="text-xs flex items-center gap-1.5 flex-wrap">
+                        <span className="font-semibold text-gray-700">{relance.montant != null ? formatEuro(relance.montant) : '—'}</span>
                         {relance.date_echeance && (
                           <>
-                            <span className="text-gray-200">·</span>
-                            <span>Échéance {formatDateShort(relance.date_echeance)}</span>
+                            <span className="text-gray-300">·</span>
+                            <span className="text-gray-500">Échéance {formatDateShort(relance.date_echeance)}</span>
                           </>
                         )}
-                        <span className="text-gray-200">·</span>
-                        <span className="text-gray-300">{new Date(relance.created_at).toLocaleDateString('fr-FR')}</span>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-gray-400">{new Date(relance.created_at).toLocaleDateString('fr-FR')}</span>
                       </p>
                     </div>
 

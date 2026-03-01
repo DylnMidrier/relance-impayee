@@ -4,15 +4,16 @@ interface Props {
   show: boolean
   onClose: () => void
   feature?: string
+  description?: string
 }
 
 const BENEFITS = [
+  'Relances actives illimitées',
   'Personnalisation des emails par IA',
   'Synchronisation Google Calendar',
-  'Relances actives illimitées',
 ]
 
-export default function UpgradeModal({ show, onClose, feature }: Props) {
+export default function UpgradeModal({ show, onClose, feature, description }: Props) {
   if (!show) return null
 
   return (
@@ -33,6 +34,11 @@ export default function UpgradeModal({ show, onClose, feature }: Props) {
             {feature && <p className="text-xs text-gray-400 mt-0.5">{feature}</p>}
           </div>
         </div>
+
+        {/* Description contextualisée */}
+        {description && (
+          <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2.5 mb-4 leading-relaxed">{description}</p>
+        )}
 
         {/* Benefits */}
         <p className="text-xs font-semibold text-gray-500 mb-3">Passez à Premium pour débloquer :</p>

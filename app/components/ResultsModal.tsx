@@ -83,21 +83,13 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
   }, [emails])
 
   function handleEnvoyer(level: number) {
-    const id = relanceIdRef.current
-    if (!id) return
-    createClient()
-      .from('relances')
-      .update({ statut: 'envoyée', date_envoi: new Date().toISOString().split('T')[0] })
-      .eq('facture_id', id)
-      .eq('niveau', level)
-      .then(({ error }) => { if (error) console.error('[relances update]', error) })
     setSentLevels(prev => prev.includes(level) ? prev : [...prev, level])
   }
 
   function handleClose() {
     // Si connecté, ouvre la dialog pour capturer les envois manuels avant de fermer
     if (relanceId) {
-      setManualSentLevels([])
+      setManualSentLevels([...sentLevels])
       setShowCloseDialog(true)
       return
     }
@@ -124,9 +116,8 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
               .eq('niveau', niveau)
           )
         )
+        onSent?.(relanceId, manualSentLevels)
       }
-      const allSent = [...sentLevels, ...(withSave ? manualSentLevels : [])]
-      if (allSent.length > 0) onSent?.(relanceId, allSent)
     }
     onClose()
   }
@@ -135,6 +126,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
     navigator.clipboard.writeText(`Objet : ${subject}\n\n${editedBodies[level] ?? ''}`)
     setCopied(level)
     setTimeout(() => setCopied(null), 2000)
+    setSentLevels(prev => prev.includes(level) ? prev : [...prev, level])
   }
 
   function closeIAModal() {
@@ -345,29 +337,24 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
 
             <div className="flex flex-col gap-2">
               {emails.map(({ level, label, dot }) => {
-                const alreadySent = sentLevels.includes(level)
-                const checked = manualSentLevels.includes(level) || alreadySent
+                const checked = manualSentLevels.includes(level)
                 return (
                   <label
                     key={level}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${
-                      alreadySent
-                        ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed'
-                        : checked
-                        ? 'bg-indigo-50 border-indigo-300 cursor-pointer'
-                        : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
+                      checked
+                        ? 'bg-indigo-50 border-indigo-300'
+                        : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
-                      disabled={alreadySent}
                       onChange={() => toggleManualLevel(level)}
                       className="rounded accent-indigo-600"
                     />
                     <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
                     <span className="text-sm font-medium text-gray-700 flex-1">{label}</span>
-                    {alreadySent && <span className="text-xs text-gray-400 shrink-0">déjà enregistré</span>}
                   </label>
                 )
               })}

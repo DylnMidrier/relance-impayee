@@ -36,31 +36,35 @@ export default function Home() {
   async function handleFormSubmit(e: React.SyntheticEvent<HTMLFormElement>) {
     e.preventDefault()
     window.dataLayer?.push({ event: 'submit_form' })
-    setEmails(genEmails(form.prenom, form.client, form.facture, form.montant, form.echeance))
-    setRelanceId(null) // reset pour chaque nouvelle génération
-    setShowModal(true)
 
-    // Sauvegarde en base si l'utilisateur est connecté
+    // Vérification du quota AVANT de générer — évite de montrer des emails non sauvegardables
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
 
-    // Fetch plan + check facture limit for free users
-    const { data: profileData } = await supabase.from('profiles').select('plan').eq('id', user.id).single()
-    const plan = (profileData?.plan ?? 'free') as Plan
-    setUserPlan(plan)
+    if (user) {
+      const { data: profileData } = await supabase.from('profiles').select('plan').eq('id', user.id).single()
+      const plan = (profileData?.plan ?? 'free') as Plan
+      setUserPlan(plan)
 
-    if (plan === 'free') {
-      const { count } = await supabase
-        .from('factures')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .neq('statut', 'payé')
-      if ((count ?? 0) >= 2) {
-        setShowUpgrade(true)
-        return
+      if (plan === 'free') {
+        const { count } = await supabase
+          .from('factures')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .neq('statut', 'payé')
+        if ((count ?? 0) >= 2) {
+          setShowUpgrade(true)
+          return
+        }
       }
     }
+
+    // Quota OK (ou utilisateur non connecté) → génération + affichage
+    setEmails(genEmails(form.prenom, form.client, form.facture, form.montant, form.echeance))
+    setRelanceId(null)
+    setShowModal(true)
+
+    if (!user) return
 
     const { data, error } = await supabase
       .from('factures')
@@ -96,7 +100,7 @@ export default function Home() {
     })
     await supabase.from('relances').insert(relancesData)
 
-    showToast('Relance enregistrée dans votre historique ✓', 'success')
+    showToast('Relances enregistrées dans votre historique ✓', 'success')
   }
 
   function handleRegenerateLevel(level: number) {
@@ -125,7 +129,8 @@ export default function Home() {
       <UpgradeModal
         show={showUpgrade}
         onClose={() => setShowUpgrade(false)}
-        feature="Limite de 2 relances actives atteinte"
+        feature="Limite du plan Gratuit atteinte"
+        description="Vous avez déjà 2 factures actives. Vos relances ne seront pas générées ni sauvegardées tant que vous restez sur le plan Gratuit."
       />
 
       {/* Toast save — z-[80] pour passer au-dessus de la modale et du toast IA (z-[70]) */}

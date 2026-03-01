@@ -521,7 +521,7 @@ Bien à vous,
 
 Je me permets de vous rappeler que le règlement de ma facture{ref} de {montant}, due le {echeance}, n'a pas encore été reçu.
 
-N'hésitez pas à me contacter si n��cessaire.
+N'hésitez pas à me contacter si nécessaire.
 
 Bien cordialement,
 {prenom}`,

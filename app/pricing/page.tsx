@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Nav from '../components/Nav'
 import Footer from '../components/Footer'
+import CheckoutButton from './CheckoutButton'
 
 const FREE_FEATURES = [
   '3 emails de relance générés en 30s',
@@ -90,12 +91,7 @@ export default function PricingPage() {
                 <p className="text-sm text-indigo-300">Pour les freelances qui veulent tout.</p>
               </div>
 
-              <Link
-                href="/auth"
-                className="block w-full text-center text-sm font-semibold px-4 py-2.5 rounded-xl bg-white text-indigo-700 hover:bg-indigo-50 transition-colors no-underline mb-8 shadow"
-              >
-                Passer Premium →
-              </Link>
+              <CheckoutButton />
 
               <ul className="space-y-3 flex-1">
                 {PREMIUM_FEATURES.map(f => (

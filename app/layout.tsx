@@ -3,7 +3,7 @@ import CookieBanner from './components/CookieBanner'
 import './globals.css'
 
 const siteUrl = 'https://recouvr.io'
-const title = 'Recouvr.io – Relancez vos clients sans stress'
+const title = 'Recouvr.io – Relancez vos clients en toute sérénité'
 const description =
   'Générez en 30 secondes 3 emails de relance professionnels pour vos factures impayées. Rappel amical, relance ferme, mise en demeure. Pour freelances français.'
 

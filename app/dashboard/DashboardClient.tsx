@@ -16,7 +16,10 @@ function addDays(dateStr: string, days: number): string {
 }
 
 function isoDate(d: Date): string {
-  return d.toISOString().split('T')[0]
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function formatEuro(n: number | null) {
@@ -63,6 +66,7 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
   const [deletingFacture, setDeletingFacture] = useState<{ facture: Facture; deleteGCal: boolean } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const [upgradeContext, setUpgradeContext] = useState<'gcal' | 'quota'>('gcal')
 
   // ── Generate form ──────────────────────────────────────────────────────────
   const emptyForm: FormState = { prenom: '', client: '', emailClient: '', facture: '', montant: '', echeance: '' }
@@ -73,6 +77,7 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
   const [showResultsModal, setShowResultsModal] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [toastClosing, setToastClosing] = useState(false)
+  const [portalLoading, setPortalLoading] = useState(false)
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -286,6 +291,25 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
 
   async function handleGenerateSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
+
+    // Vérification du quota AVANT de générer
+    if (plan === 'free') {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { count } = await supabase
+          .from('factures')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .neq('statut', 'payé')
+        if ((count ?? 0) >= 2) {
+          setUpgradeContext('quota')
+          setShowUpgrade(true)
+          return
+        }
+      }
+    }
+
     setEmails(genEmails(generateForm.prenom, generateForm.client, generateForm.facture, generateForm.montant, generateForm.echeance))
     setGenerateFactureId(null)
     setShowGenerateModal(false)
@@ -294,15 +318,6 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
-    if (plan === 'free') {
-      const { count } = await supabase
-        .from('factures')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .neq('statut', 'payé')
-      if ((count ?? 0) >= 2) { setShowUpgrade(true); return }
-    }
 
     const { data: factureData, error } = await supabase
       .from('factures')
@@ -351,6 +366,21 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
     setEmails(prev => prev.map(e => e.level === level ? newEmail : e))
   }
 
+  async function handleManageSubscription() {
+    setPortalLoading(true)
+    try {
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origin: window.location.origin }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+    } finally {
+      setPortalLoading(false)
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-gray-50 pb-16">
@@ -365,15 +395,26 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
             </svg>
             Retour à l'accueil
           </a>
-          <button
-            onClick={() => { setGenerateForm(emptyForm); setShowGenerateModal(true) }}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Générer une relance
-          </button>
+          <div className="flex items-center gap-2">
+            {plan === 'premium' && (
+              <button
+                onClick={handleManageSubscription}
+                disabled={portalLoading}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition-colors disabled:opacity-50"
+              >
+                {portalLoading ? 'Chargement…' : 'Gérer mon abonnement'}
+              </button>
+            )}
+            <button
+              onClick={() => { setGenerateForm(emptyForm); setShowGenerateModal(true) }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Générer une relance
+            </button>
+          </div>
         </div>
 
         {/* ── KPI summary ─────────────────────────────────────────────────── */}
@@ -447,7 +488,7 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
 
               {plan === 'free' ? (
                 <button
-                  onClick={() => setShowUpgrade(true)}
+                  onClick={() => { setUpgradeContext('gcal'); setShowUpgrade(true) }}
                   className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 whitespace-nowrap"
                 >
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -673,7 +714,12 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
         </div>
       )}
 
-      <UpgradeModal show={showUpgrade} onClose={() => setShowUpgrade(false)} feature="Synchronisation Google Calendar" />
+      <UpgradeModal
+        show={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        feature={upgradeContext === 'quota' ? 'Limite du plan Gratuit atteinte' : 'Synchronisation Google Calendar'}
+        description={upgradeContext === 'quota' ? 'Vous avez déjà 2 factures actives. Vos relances ne seront pas générées ni sauvegardées tant que vous restez sur le plan Gratuit.' : undefined}
+      />
 
       {/* ── Generate modal ───────────────────────────────────────────────── */}
       {showGenerateModal && (

@@ -31,7 +31,9 @@ export type Facture = {
 
 export type { Plan }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<Record<string, string>> }) {
+  const params = await searchParams
+  const paymentSuccess = params.payment_success === 'true'
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,7 +61,7 @@ export default async function DashboardPage() {
   return (
     <>
       <Nav />
-      <DashboardClient factures={(data ?? []) as Facture[]} plan={plan} />
+      <DashboardClient factures={(data ?? []) as Facture[]} plan={plan} paymentSuccess={paymentSuccess} />
     </>
   )
 }

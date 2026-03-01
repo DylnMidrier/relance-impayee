@@ -55,7 +55,7 @@ const STATUS_OPTIONS = [
 
 // ─── component ───────────────────────────────────────────────────────────────
 
-export default function DashboardClient({ factures: initial, plan }: { factures: Facture[]; plan: Plan }) {
+export default function DashboardClient({ factures: initial, plan, paymentSuccess = false }: { factures: Facture[]; plan: Plan; paymentSuccess?: boolean }) {
   const [factures, setFactures] = useState(initial)
   const [editingEvent, setEditingEvent] = useState<{
     factureId: string; nomClient: string; numeroFacture: string | null; echeance: string; niveau: number
@@ -78,6 +78,15 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [toastClosing, setToastClosing] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [showPaymentSuccess, setShowPaymentSuccess] = useState(paymentSuccess)
+
+  useEffect(() => {
+    if (paymentSuccess) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('payment_success')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
 
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -865,6 +874,37 @@ export default function DashboardClient({ factures: initial, plan }: { factures:
           </div>
         </div>
       )}
+      {/* ── Payment success modal ─────────────────────────────────────────── */}
+      {showPaymentSuccess && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          onClick={() => setShowPaymentSuccess(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col items-center text-center gap-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="text-indigo-500">
+                <path d="M12 2l2.09 6.26L21 12l-6.91 3.74L12 22l-2.09-6.26L3 12l6.91-3.74z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-gray-900 mb-1">Bienvenue dans Premium !</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Votre abonnement est actif. Relances illimitées, personnalisation IA et sync Google Calendar sont maintenant disponibles.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowPaymentSuccess(false)}
+              className="w-full text-sm font-semibold px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+            >
+              Accéder au dashboard →
+            </button>
+          </div>
+        </div>
+      )}
+
     </main>
   )
 }

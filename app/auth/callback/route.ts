@@ -22,7 +22,10 @@ export async function GET(request: Request) {
         },
       },
     )
-    await supabase.auth.exchangeCodeForSession(code)
+    const { data: { user } } = await supabase.auth.exchangeCodeForSession(code)
+    if (user) {
+      await supabase.from('profiles').upsert({ id: user.id, plan: 'free' }, { onConflict: 'id', ignoreDuplicates: true })
+    }
   }
 
   return NextResponse.redirect(origin)

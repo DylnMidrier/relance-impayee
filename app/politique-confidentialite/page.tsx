@@ -41,10 +41,15 @@ Nous ne collectons aucune donnée de paiement (les transactions éventuelles son
 
 • Supabase — hébergement de la base de données et authentification (infrastructure AWS, datacenter Union Européenne).
 • Anthropic — traitement IA des emails (plan Premium). Les données transmises sont limitées au contenu de l'email et à votre instruction. Anthropic s'engage contractuellement à ne pas utiliser ces données pour entraîner ses modèles.
-• Google — synchronisation Google Calendar (uniquement si vous l'activez). Soumis à la politique de confidentialité de Google.
+• Google — authentification OAuth et synchronisation Google Calendar. Lors de la connexion, Google reçoit une demande d'authentification et nous transmet votre adresse e-mail et photo de profil. Si vous activez la synchronisation Calendar, nous créons et supprimons des événements dans votre agenda via l'API Google Calendar. Ces données sont soumises à la politique de confidentialité de Google : policies.google.com/privacy
 • Vercel — hébergement de l'application (infrastructure EU).
+• Stripe — gestion des paiements et abonnements (plan Premium). Stripe traite vos données de paiement directement ; nous ne stockons aucune donnée bancaire.
 
-Aucune donnée n'est vendue à des tiers ni utilisée à des fins publicitaires.`,
+Partage des données utilisateur Google avec des tiers :
+Les données que nous recevons de Google (adresse e-mail, photo de profil pour l'authentification ; identifiants d'événements Calendar si vous activez la synchronisation) sont communiquées aux tiers suivants, dans la stricte limite du nécessaire :
+• Supabase : stockage sécurisé de votre profil (adresse e-mail, identifiant utilisateur, identifiants d'événements Calendar).
+• Vercel : hébergement de l'application — vos données transitent par les serveurs Vercel lors des requêtes HTTP.
+Nous ne partageons pas vos données utilisateur Google avec Anthropic, Stripe, ni aucun autre tiers non listé ci-dessus. Vos données Google ne sont jamais revendues ni utilisées à des fins publicitaires.`,
   },
   {
     title: '6. Durée de conservation',

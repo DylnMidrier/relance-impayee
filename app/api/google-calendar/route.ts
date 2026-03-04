@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { getUserPlan } from '../../lib/plan'
 
 const GCAL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
@@ -45,10 +46,21 @@ export async function POST(req: Request) {
   const plan = await getUserPlan(user.id)
   if (plan !== 'premium') return NextResponse.json({ error: 'premium_required' }, { status: 403 })
 
-  const { token, factures } = await req.json()
-  if (!token || !Array.isArray(factures)) {
+  const GCalPostSchema = z.object({
+    token:    z.string().min(1),
+    factures: z.array(z.object({
+      id:            z.string(),
+      nom_client:    z.string(),
+      date_echeance: z.string().nullable(),
+      montant:       z.number().nullable().optional(),
+    })),
+  })
+
+  const parsed = GCalPostSchema.safeParse(await req.json())
+  if (!parsed.success) {
     return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
   }
+  const { token, factures } = parsed.data
 
   const eventIds: Record<string, string[]> = {}
 
@@ -100,10 +112,16 @@ export async function DELETE(req: Request) {
   const user = await requireUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { token, eventIds } = await req.json()
-  if (!token || !Array.isArray(eventIds)) {
+  const GCalDeleteSchema = z.object({
+    token:    z.string().min(1),
+    eventIds: z.array(z.string()),
+  })
+
+  const parsedDel = GCalDeleteSchema.safeParse(await req.json())
+  if (!parsedDel.success) {
     return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
   }
+  const { token, eventIds } = parsedDel.data
 
   await Promise.allSettled(
     eventIds.map((id: string) =>

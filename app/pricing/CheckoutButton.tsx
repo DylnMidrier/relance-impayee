@@ -13,7 +13,6 @@ export default function CheckoutButton() {
       if (!user) return
       const url = new URL(PAYMENT_LINK)
       url.searchParams.set('client_reference_id', user.id)
-      if (user.email) url.searchParams.set('prefilled_email', user.email)
       setHref(url.toString())
     })
   }, [])

@@ -292,10 +292,17 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       }
     }
 
-    await createClient().from('factures').delete().eq('id', facture.id) // cascade → relances supprimées
+    const { error } = await createClient().from('factures').delete().eq('id', facture.id) // cascade → relances supprimées
+    if (error) {
+      setDeleting(false)
+      showToast('Impossible de supprimer la relance. Réessayez.', 'error')
+      return
+    }
+
     setFactures(prev => prev.filter(f => f.id !== facture.id))
     setDeletingFacture(null)
     setDeleting(false)
+    showToast('Relance supprimée.', 'success')
   }
 
   // ── Toggle envoi ──────────────────────────────────────────────────────────
@@ -629,9 +636,17 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
           </div>
 
           {factures.length === 0 ? (
-            <div className="px-5 py-14 text-center text-sm text-gray-400">
-              Aucune relance pour l'instant.<br />
-              <span className="text-gray-300">Générez vos premiers emails depuis la page d'accueil.</span>
+            <div className="px-5 py-14 text-center text-sm text-gray-400 flex flex-col items-center gap-3">
+              <span>Aucune relance pour l'instant.</span>
+              <button
+                onClick={() => { setGenerateForm(emptyForm); setShowGenerateModal(true) }}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Générer ma première relance
+              </button>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">

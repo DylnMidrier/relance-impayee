@@ -29,7 +29,10 @@ const rainbowBorder = (active: boolean): React.CSSProperties => ({
     : 'linear-gradient(white, white) padding-box, linear-gradient(135deg, #f97316, #ef4444, #a855f7, #3b82f6, #22d3ee) border-box',
 })
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId, plan, onSent }: Props) {
+  const emailValid = EMAIL_RE.test(form.emailClient)
   const [copied, setCopied] = useState<number | null>(null)
   const [editedBodies, setEditedBodies] = useState<Record<number, string>>({})
   // Incrémenté à chaque regen d'un niveau — le changement de key remonte le nœud et relance l'animation CSS
@@ -162,6 +165,10 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
         setShowUpgrade(true)
         return
       }
+      if (res.status === 429) {
+        showToast(data.error ?? "Trop de requêtes IA. Réessayez dans une minute.")
+        return
+      }
       if (!res.ok || data.error) {
         console.error('[IA]', data.error ?? `HTTP ${res.status}`)
         showToast("Désolé, notre agent IA a rencontré quelques soucis ! Mais il sera très vite remis sur pieds 🔧")
@@ -259,13 +266,22 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
                     {copied === level ? '✓ Copié !' : 'Copier'}
                   </button>
                   {/* mailto: → ouvre l'app mail par défaut sur tous les OS/mobiles */}
-                  <a
-                    href={buildMailtoHref(form.emailClient, subject, editedBodies[level] ?? '')}
-                    onClick={() => handleEnvoyer(level)}
-                    className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-all text-center no-underline"
-                  >
-                    Envoyer
-                  </a>
+                  {emailValid ? (
+                    <a
+                      href={buildMailtoHref(form.emailClient, subject, editedBodies[level] ?? '')}
+                      onClick={() => handleEnvoyer(level)}
+                      className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-all text-center no-underline"
+                    >
+                      Envoyer
+                    </a>
+                  ) : (
+                    <span
+                      className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md border border-gray-100 bg-gray-50 text-gray-300 text-center cursor-not-allowed"
+                      title="Email client invalide ou manquant"
+                    >
+                      Envoyer
+                    </span>
+                  )}
                   {/* Regénère un nouveau template aléatoire pour ce niveau */}
                   <button
                     onClick={() => {

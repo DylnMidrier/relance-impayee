@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 
 const anthropic = new Anthropic()
 
@@ -61,20 +62,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'premium_required' }, { status: 403 })
     }
 
-    const { body, subject, userPrompt, client, montant, echeance, level } = await req.json()
+    const ImproveSchema = z.object({
+      body:       z.string().max(4000),
+      subject:    z.string().max(200),
+      userPrompt: z.string().min(1).max(500),
+      client:     z.string().max(200),
+      montant:    z.string().max(50),
+      echeance:   z.string().max(50),
+      level:      z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    })
 
-    // Validation des inputs
-    if (
-      typeof body !== 'string' || body.length > 4000 ||
-      typeof subject !== 'string' || subject.length > 200 ||
-      typeof userPrompt !== 'string' || userPrompt.length === 0 || userPrompt.length > 500 ||
-      typeof client !== 'string' || client.length > 200 ||
-      typeof montant !== 'string' || montant.length > 50 ||
-      typeof echeance !== 'string' || echeance.length > 50 ||
-      ![1, 2, 3].includes(level)
-    ) {
+    const parsed = ImproveSchema.safeParse(await req.json())
+    if (!parsed.success) {
       return NextResponse.json({ error: 'Paramètres invalides.' }, { status: 400 })
     }
+    const { body, subject, userPrompt, client, montant, echeance, level } = parsed.data
 
     const message = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',

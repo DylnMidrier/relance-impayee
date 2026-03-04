@@ -19,10 +19,11 @@ export async function getUserPlan(userId: string): Promise<Plan> {
       },
     },
   )
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('plan')
     .eq('id', userId)
     .single()
+  if (error) return 'free'
   return ((data?.plan as Plan) ?? 'free')
 }

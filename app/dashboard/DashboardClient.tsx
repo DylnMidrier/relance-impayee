@@ -55,15 +55,17 @@ const STATUS_OPTIONS = [
 
 // ─── component ───────────────────────────────────────────────────────────────
 
-export default function DashboardClient({ factures: initial, plan, paymentSuccess = false }: { factures: Facture[]; plan: Plan; paymentSuccess?: boolean }) {
+export default function DashboardClient({ factures: initial, plan, paymentSuccess = false, hasMore: initialHasMore = false, userId }: { factures: Facture[]; plan: Plan; paymentSuccess?: boolean; hasMore?: boolean; userId: string }) {
   const [factures, setFactures] = useState(initial)
   const [editingEvent, setEditingEvent] = useState<{
     factureId: string; nomClient: string; numeroFacture: string | null; echeance: string; niveau: number
   } | null>(null)
   const [editDate, setEditDate] = useState('')
   const [syncing, setSyncing] = useState(false)
-  const [gcalMsg, setGcalMsg] = useState<{ text: string; needsReauth?: boolean } | null>(null)
+  const [gcalMsg, setGcalMsg] = useState<{ text: string; needsReauth?: boolean; canRetry?: boolean } | null>(null)
   const [deletingFacture, setDeletingFacture] = useState<{ facture: Facture; deleteGCal: boolean } | null>(null)
+  const [confirmGCalDelete, setConfirmGCalDelete] = useState<Facture | null>(null)
+  const [deletingGCal, setDeletingGCal] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [upgradeContext, setUpgradeContext] = useState<'gcal' | 'quota'>('gcal')
@@ -78,6 +80,9 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [toastClosing, setToastClosing] = useState(false)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [generateLoading, setGenerateLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(initialHasMore)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [showPaymentSuccess, setShowPaymentSuccess] = useState(paymentSuccess)
 
   useEffect(() => {
@@ -165,8 +170,13 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   async function handleStatusChange(id: string, statut: string) {
+    const previous = factures.find(f => f.id === id)?.statut ?? null
     setFactures(prev => prev.map(f => f.id === id ? { ...f, statut } : f))
-    await createClient().from('factures').update({ statut }).eq('id', id)
+    const { error } = await createClient().from('factures').update({ statut }).eq('id', id)
+    if (error) {
+      setFactures(prev => prev.map(f => f.id === id ? { ...f, statut: previous } : f))
+      showToast('Impossible de modifier le statut.', 'error')
+    }
   }
 
   function openEditEvent(facture: Facture, niveau: number) {
@@ -212,8 +222,12 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       const body = await res.json().catch(() => ({})) as { error?: string }
       if (body.error === 'insufficient_scope') {
         setGcalMsg({ text: 'Votre compte Google n\'a pas encore autorisé l\'accès au calendrier.', needsReauth: true })
+      } else if (res.status === 401) {
+        setGcalMsg({ text: 'Session Google expirée. Reconnectez-vous pour synchroniser.', needsReauth: true })
+      } else if (res.status === 429) {
+        setGcalMsg({ text: 'Limite Google Calendar atteinte. Réessayez dans quelques minutes.', canRetry: true })
       } else {
-        setGcalMsg({ text: 'Erreur lors de la synchronisation.' })
+        setGcalMsg({ text: 'Erreur lors de la synchronisation. Réessayez.', canRetry: true })
       }
       setSyncing(false); return
     }
@@ -240,17 +254,25 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
   }
 
   async function handleDeleteGCalEvents(facture: Facture) {
-    if (!facture.gcal_event_ids?.length) return
+    setConfirmGCalDelete(facture)
+  }
+
+  async function confirmDeleteGCalEvents() {
+    if (!confirmGCalDelete) return
+    setDeletingGCal(true)
     const { data: { session } } = await createClient().auth.getSession()
     const token = session?.provider_token
-    if (!token) return
-    await fetch('/api/google-calendar', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, eventIds: facture.gcal_event_ids }),
-    })
-    await createClient().from('factures').update({ gcal_event_ids: null }).eq('id', facture.id)
-    setFactures(prev => prev.map(f => f.id === facture.id ? { ...f, gcal_event_ids: null } : f))
+    if (token) {
+      await fetch('/api/google-calendar', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, eventIds: confirmGCalDelete.gcal_event_ids }),
+      })
+    }
+    await createClient().from('factures').update({ gcal_event_ids: null }).eq('id', confirmGCalDelete.id)
+    setFactures(prev => prev.map(f => f.id === confirmGCalDelete.id ? { ...f, gcal_event_ids: null } : f))
+    setConfirmGCalDelete(null)
+    setDeletingGCal(false)
   }
 
   async function confirmDeleteFacture() {
@@ -319,14 +341,11 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       }
     }
 
-    setEmails(genEmails(generateForm.prenom, generateForm.client, generateForm.facture, generateForm.montant, generateForm.echeance))
-    setGenerateFactureId(null)
-    setShowGenerateModal(false)
-    setShowResultsModal(true)
+    setGenerateLoading(true)
 
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) { setGenerateLoading(false); return }
 
     const { data: factureData, error } = await supabase
       .from('factures')
@@ -342,6 +361,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       .single()
 
     if (error || !factureData) {
+      setGenerateLoading(false)
       showToast('Impossible d\'enregistrer la relance.', 'error')
       return
     }
@@ -354,7 +374,6 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
     }))
     const { data: relancesData } = await supabase.from('relances').insert(relancesInsert).select()
 
-    setGenerateFactureId(factureData.id)
     setFactures(prev => [{
       id: factureData.id,
       nom_client: generateForm.client,
@@ -367,7 +386,28 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       gcal_event_ids: null,
       relances: (relancesData ?? []) as Relance[],
     } as Facture, ...prev])
+
+    setEmails(genEmails(generateForm.prenom, generateForm.client, generateForm.facture, generateForm.montant, generateForm.echeance))
+    setGenerateFactureId(factureData.id)
+    setGenerateLoading(false)
+    setShowGenerateModal(false)
+    setShowResultsModal(true)
     showToast('Relance enregistrée ✓', 'success')
+  }
+
+  async function handleLoadMore() {
+    setLoadingMore(true)
+    const { data } = await createClient()
+      .from('factures')
+      .select('*, relances(*)')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(factures.length, factures.length + 49)
+    if (data) {
+      setFactures(prev => [...prev, ...(data as Facture[])])
+      setHasMore(data.length === 50)
+    }
+    setLoadingMore(false)
   }
 
   function handleRegenerateLevel(level: number) {
@@ -492,6 +532,14 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                       Autoriser →
                     </button>
                   )}
+                  {gcalMsg.canRetry && (
+                    <button
+                      onClick={() => { setGcalMsg(null); handleGCalSync() }}
+                      className="ml-1 font-semibold text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors whitespace-nowrap"
+                    >
+                      Réessayer →
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -587,7 +635,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {factures.map(facture => {
+              {factures.map((facture) => {
                 const status = normalizeStatus(facture.statut)
                 return (
                   <div key={facture.id} className="px-4 sm:px-5 py-3.5">
@@ -679,6 +727,18 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               })}
             </div>
           )}
+
+          {hasMore && (
+            <div className="px-5 py-4 border-t border-gray-100 text-center">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {loadingMore ? 'Chargement…' : 'Charger plus'}
+              </button>
+            </div>
+          )}
         </section>
 
       </div>
@@ -767,9 +827,10 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               ))}
               <button
                 type="submit"
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors mt-2"
+                disabled={generateLoading}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Générer mes 3 emails →
+                {generateLoading ? 'Enregistrement…' : 'Générer mes 3 emails →'}
               </button>
             </form>
           </div>
@@ -874,6 +935,47 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
           </div>
         </div>
       )}
+      {/* ── GCal delete confirmation modal ───────────────────────────────── */}
+      {confirmGCalDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          onClick={e => { if (e.target === e.currentTarget && !deletingGCal) setConfirmGCalDelete(null) }}
+        >
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">Supprimer les rappels Calendar</h3>
+                <p className="text-xs text-gray-500 mt-0.5">{confirmGCalDelete.nom_client}</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 mb-5">
+              {(confirmGCalDelete.gcal_event_ids?.length ?? 0)} rappel{(confirmGCalDelete.gcal_event_ids?.length ?? 0) > 1 ? 's' : ''} Google Calendar seront supprimés. Cette action est irréversible.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setConfirmGCalDelete(null)}
+                disabled={deletingGCal}
+                className="text-xs px-4 py-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmDeleteGCalEvents}
+                disabled={deletingGCal}
+                className="text-xs px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors disabled:opacity-50"
+              >
+                {deletingGCal ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Payment success modal ─────────────────────────────────────────── */}
       {showPaymentSuccess && (
         <div

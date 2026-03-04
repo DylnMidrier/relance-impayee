@@ -105,7 +105,7 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
   }
 
-  await Promise.all(
+  await Promise.allSettled(
     eventIds.map((id: string) =>
       fetch(`${GCAL}/${id}`, {
         method: 'DELETE',

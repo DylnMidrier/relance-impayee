@@ -35,11 +35,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Aucun abonnement actif trouvé' }, { status: 404 })
   }
 
-  const { origin } = await req.json()
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://recouvr.io'
 
   const session = await stripe.billingPortal.sessions.create({
     customer: profile.stripe_customer_id,
-    return_url: `${origin}/dashboard`,
+    return_url: `${appUrl}/dashboard`,
   })
 
   return NextResponse.json({ url: session.url })

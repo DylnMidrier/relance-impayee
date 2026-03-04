@@ -53,15 +53,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const [{ data }, plan] = await Promise.all([
-    supabase.from('factures').select('*, relances(*)').eq('user_id', user.id).order('created_at', { ascending: false }),
+  const PAGE_SIZE = 50
+  const [{ data, count }, plan] = await Promise.all([
+    supabase.from('factures').select('*, relances(*)', { count: 'estimated' }).eq('user_id', user.id).order('created_at', { ascending: false }).limit(PAGE_SIZE),
     getUserPlan(user.id),
   ])
+  const hasMore = (count ?? 0) > PAGE_SIZE
 
   return (
     <>
       <Nav />
-      <DashboardClient factures={(data ?? []) as Facture[]} plan={plan} paymentSuccess={paymentSuccess} />
+      <DashboardClient factures={(data ?? []) as Facture[]} plan={plan} paymentSuccess={paymentSuccess} hasMore={hasMore} userId={user.id} />
     </>
   )
 }

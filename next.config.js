@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+const { withSentryConfig } = require('@sentry/nextjs')
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -18,6 +19,7 @@ const CSP = [
     "https://region1.google-analytics.com",
     "https://www.clarity.ms",
     "https://c.clarity.ms",
+    "https://*.sentry.io",
   ].join(' '),
   // Next.js charge les fonts en data URI
   "font-src 'self' data:",
@@ -42,4 +44,13 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+module.exports = withSentryConfig(nextConfig, {
+  org: 'recouvrio',
+  project: 'recouvrio-nextjs',
+
+  // Upload des source maps en prod pour des stack traces lisibles dans Sentry
+  silent: true,
+  widenClientFileUpload: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+})

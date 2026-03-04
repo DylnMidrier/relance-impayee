@@ -4,7 +4,7 @@ const PREVIEW_EMAILS = [
     color: 'green',
     tag: 'Niveau 1 · J+7',
     subject: 'Rappel – Facture n°2024-089 (2 400 €)',
-    body: "Bonjour Martin, j'espère que vous allez bien. Je me permets de revenir sur la facture n°2024-089 de 2 400 €, échue le 1er nov. — peut-être est-elle passée entre les mailles ?",
+    body: "Bonjour Martin, j'espère que vous allez bien. Je me permets de revenir sur la facture n°2024-089 de 2 400 €, échue le 1er nov. Peut-être est-elle passée entre les mailles ?",
   },
   {
     level: 2,

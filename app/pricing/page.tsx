@@ -7,7 +7,7 @@ const FREE_FEATURES = [
   '3 emails de relance générés en 30s',
   'Rappel amical, relance ferme, mise en demeure',
   'Envoi via votre messagerie (mailto)',
-  'Historique — 2 relances actives',
+  'Historique (2 relances actives)',
   'Tableau de bord de suivi',
 ]
 

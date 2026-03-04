@@ -34,7 +34,7 @@ Vous devez avoir au moins 18 ans et agir dans un cadre professionnel (activité 
 • Plan Gratuit : accès limité à 2 relances actives simultanément, sans fonctionnalités Premium.
 • Plan Premium : accès illimité à l'ensemble des fonctionnalités, au tarif de 9,99 € TTC par mois.
 
-L'abonnement Premium est sans engagement. Vous pouvez résilier à tout moment depuis votre tableau de bord. La résiliation prend effet à la fin de la période de facturation en cours — aucun remboursement au prorata n'est effectué pour la période restante.
+L'abonnement Premium est sans engagement. Vous pouvez résilier à tout moment depuis votre tableau de bord. La résiliation prend effet à la fin de la période de facturation en cours. Aucun remboursement au prorata n'est effectué pour la période restante.
 
 Les prix sont susceptibles d'évoluer. Tout changement tarifaire vous sera communiqué par e-mail avec un préavis d'au moins 30 jours.`,
   },

@@ -136,7 +136,7 @@ Bien à vous,
 
 Je me permets de vous rappeler amicalement que ma facture{ref} de {montant} est échue depuis le {echeance}.
 
-Il y a peut-être un délai administratif de votre côté — ce n'est pas un problème, merci simplement de m'en tenir informé(e).
+Il y a peut-être un délai administratif de votre côté, ce n'est pas un problème. Merci simplement de m'en tenir informé(e).
 
 Bien cordialement,
 {prenom}`,
@@ -345,7 +345,7 @@ Bonne journée,
 
 Je me permets de revenir sur ma facture{ref} de {montant}, dont le règlement était attendu au {echeance}.
 
-Si un retard s'est produit de votre côté, ce n'est pas un problème — merci simplement de m'en tenir informé(e).
+Si un retard s'est produit de votre côté, ce n'est pas un problème. Merci simplement de m'en tenir informé(e).
 
 Bien cordialement,
 {prenom}`,

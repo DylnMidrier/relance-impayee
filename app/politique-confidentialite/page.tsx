@@ -11,7 +11,7 @@ const SECTIONS = [
     content: `Nous collectons uniquement les données nécessaires au fonctionnement du service :
 
 • Données de compte : adresse e-mail, utilisées pour l'authentification via Supabase Auth.
-• Données de facturation : nom du client, e-mail du client, numéro de facture, montant, date d'échéance — saisies par vous lors de la création d'une relance.
+• Données de facturation : nom du client, e-mail du client, numéro de facture, montant, date d'échéance (saisies par vous lors de la création d'une relance).
 • Données de suivi : statut des relances (planifiée, envoyée), dates d'envoi, identifiants d'événements Google Calendar (si vous activez la synchronisation).
 • Données techniques : logs d'accès minimaux à des fins de sécurité.
 
@@ -24,7 +24,7 @@ Nous ne collectons aucune donnée de paiement (les transactions éventuelles son
 • Fournir le service de génération et de suivi des emails de relance.
 • Authentifier votre compte et sécuriser votre accès.
 • Synchroniser vos rappels avec Google Calendar (uniquement si vous activez cette fonctionnalité).
-• Améliorer vos emails via notre agent IA (plan Premium uniquement — le texte de votre email et votre instruction sont transmis à l'API Anthropic Claude).
+• Améliorer vos emails via notre agent IA (plan Premium uniquement ; le texte de votre email et votre instruction sont transmis à l'API Anthropic Claude).
 • Vous contacter en cas de problème technique critique affectant votre compte.`,
   },
   {
@@ -39,16 +39,16 @@ Nous ne collectons aucune donnée de paiement (les transactions éventuelles son
     title: '5. Sous-traitants et transferts',
     content: `Nous faisons appel aux prestataires suivants :
 
-• Supabase — hébergement de la base de données et authentification (infrastructure AWS, datacenter Union Européenne).
-• Anthropic — traitement IA des emails (plan Premium). Les données transmises sont limitées au contenu de l'email et à votre instruction. Anthropic s'engage contractuellement à ne pas utiliser ces données pour entraîner ses modèles.
-• Google — authentification OAuth et synchronisation Google Calendar. Lors de la connexion, Google reçoit une demande d'authentification et nous transmet votre adresse e-mail et photo de profil. Si vous activez la synchronisation Calendar, nous créons et supprimons des événements dans votre agenda via l'API Google Calendar. Ces données sont soumises à la politique de confidentialité de Google : policies.google.com/privacy
-• Vercel — hébergement de l'application (infrastructure EU).
-• Stripe — gestion des paiements et abonnements (plan Premium). Stripe traite vos données de paiement directement ; nous ne stockons aucune donnée bancaire.
+• Supabase : hébergement de la base de données et authentification (infrastructure AWS, datacenter Union Européenne).
+• Anthropic : traitement IA des emails (plan Premium). Les données transmises sont limitées au contenu de l'email et à votre instruction. Anthropic s'engage contractuellement à ne pas utiliser ces données pour entraîner ses modèles.
+• Google : authentification OAuth et synchronisation Google Calendar. Lors de la connexion, Google reçoit une demande d'authentification et nous transmet votre adresse e-mail et photo de profil. Si vous activez la synchronisation Calendar, nous créons et supprimons des événements dans votre agenda via l'API Google Calendar. Ces données sont soumises à la politique de confidentialité de Google : policies.google.com/privacy
+• Vercel : hébergement de l'application (infrastructure EU).
+• Stripe : gestion des paiements et abonnements (plan Premium). Stripe traite vos données de paiement directement ; nous ne stockons aucune donnée bancaire.
 
 Partage des données utilisateur Google avec des tiers :
 Les données que nous recevons de Google (adresse e-mail, photo de profil pour l'authentification ; identifiants d'événements Calendar si vous activez la synchronisation) sont communiquées aux tiers suivants, dans la stricte limite du nécessaire :
 • Supabase : stockage sécurisé de votre profil (adresse e-mail, identifiant utilisateur, identifiants d'événements Calendar).
-• Vercel : hébergement de l'application — vos données transitent par les serveurs Vercel lors des requêtes HTTP.
+• Vercel : hébergement de l'application (vos données transitent par les serveurs Vercel lors des requêtes HTTP).
 Nous ne partageons pas vos données utilisateur Google avec Anthropic, Stripe, ni aucun autre tiers non listé ci-dessus. Vos données Google ne sont jamais revendues ni utilisées à des fins publicitaires.`,
   },
   {

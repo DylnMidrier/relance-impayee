@@ -17,7 +17,7 @@ const FEATURES = [
       </svg>
     ),
     title: 'Agent IA pour affiner',
-    desc: 'Donnez une instruction en langage naturel — "rends-le plus formel", "ajoute les pénalités de retard" — et Claude réécrit l\'email en un clic.',
+    desc: 'Donnez une instruction en langage naturel : "rends-le plus formel", "ajoute les pénalités de retard". Claude réécrit l\'email en un clic.',
   },
   {
     icon: (

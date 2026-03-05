@@ -29,11 +29,20 @@ export const metadata: Metadata = {
     siteName: 'Recouvr',
     title,
     description,
+    images: [
+      {
+        url: '/screenshots/desktop_screenshot.png',
+        width: 1200,
+        height: 630,
+        alt: 'Recouvr.io – Générateur d\'emails de relance pour factures impayées',
+      },
+    ],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title,
     description,
+    images: ['/screenshots/desktop_screenshot.png'],
   },
   robots: {
     index: true,

@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Nav from '../components/Nav'
+import Footer from '../components/Footer'
 import DashboardClient from './DashboardClient'
 import { getUserPlan } from '../lib/plan'
 import type { Plan } from '../lib/plan'
@@ -64,6 +65,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     <>
       <Nav />
       <DashboardClient factures={(data ?? []) as Facture[]} plan={plan} paymentSuccess={paymentSuccess} hasMore={hasMore} userId={user.id} />
+      <Footer />
     </>
   )
 }

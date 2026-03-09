@@ -71,7 +71,18 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
   const [upgradeContext, setUpgradeContext] = useState<'gcal' | 'quota'>('gcal')
 
   // ── Generate form ──────────────────────────────────────────────────────────
-  const emptyForm: FormState = { prenom: '', client: '', emailClient: '', facture: '', montant: '', echeance: '' }
+  const [userPrenom, setUserPrenom] = useState('')
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      const given = user?.user_metadata?.given_name ?? user?.user_metadata?.full_name?.split(' ')[0] ?? ''
+      if (given) {
+        setUserPrenom(given)
+        setGenerateForm(prev => ({ ...prev, prenom: given }))
+      }
+    })
+  }, [])
+
+  const emptyForm: FormState = { prenom: userPrenom, client: '', emailClient: '', facture: '', montant: '', echeance: '' }
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [generateForm, setGenerateForm] = useState<FormState>(emptyForm)
   const [emails, setEmails] = useState<EmailTemplate[]>([])
@@ -340,7 +351,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id)
           .neq('statut', 'payé')
-        if ((count ?? 0) >= 2) {
+        if ((count ?? 0) >= 1) {
           setUpgradeContext('quota')
           setShowUpgrade(true)
           return
@@ -468,7 +479,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
-              Générer une relance
+              Nouvelle facture
             </button>
           </div>
         </div>
@@ -645,7 +656,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
-                Générer ma première relance
+                Ajouter ma première facture
               </button>
             </div>
           ) : (
@@ -802,7 +813,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
         show={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         feature={upgradeContext === 'quota' ? 'Limite du plan Gratuit atteinte' : 'Synchronisation Google Calendar'}
-        description={upgradeContext === 'quota' ? 'Vous avez déjà 2 factures actives. Vos relances ne seront pas générées ni sauvegardées tant que vous restez sur le plan Gratuit.' : undefined}
+        description={upgradeContext === 'quota' ? 'Vous avez déjà 1 facture active. Passez Premium pour gérer plusieurs factures impayées simultanément.' : undefined}
       />
 
       {/* ── Generate modal ───────────────────────────────────────────────── */}
@@ -813,7 +824,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
         >
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-              <h3 className="text-sm font-bold text-gray-900">Générer une relance</h3>
+              <h3 className="text-sm font-bold text-gray-900">Nouvelle facture</h3>
               <button onClick={() => setShowGenerateModal(false)} className="text-gray-300 hover:text-gray-500 transition-colors">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>

@@ -3,49 +3,30 @@ import Nav from '../components/Nav'
 import Footer from '../components/Footer'
 import CheckoutButton from './CheckoutButton'
 
-const FREE_FEATURES = [
+const COMMON_FEATURES = [
   '3 emails de relance générés en 30s',
   'Rappel amical, relance ferme, mise en demeure',
-  'Envoi via votre messagerie (mailto)',
-  'Historique (2 relances actives)',
+  'Envoi via votre messagerie',
   'Tableau de bord de suivi',
 ]
 
-const FREE_MISSING = [
-  'Personnalisation par IA',
-  'Relances illimitées',
-  'Synchronisation Google Calendar',
-]
-
-const PREMIUM_FEATURES = [
-  '3 emails de relance générés en 30s',
-  'Rappel amical, relance ferme, mise en demeure',
-  'Envoi via votre messagerie (mailto)',
-  'Relances illimitées',
-  'Tableau de bord de suivi',
+const PREMIUM_ONLY = [
+  'Factures illimitées',
   'Personnalisation par IA',
   'Synchronisation Google Calendar',
   'Support prioritaire',
 ]
 
-function CheckIcon({ dim = false }: { dim?: boolean }) {
+function CheckIcon({ bright = false }: { bright?: boolean }) {
   return (
     <svg
-      className={`w-4 h-4 shrink-0 mt-0.5 ${dim ? 'text-slate-600' : 'text-indigo-400'}`}
+      className={`w-4 h-4 shrink-0 mt-0.5 ${bright ? 'text-indigo-300' : 'text-slate-500'}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
       strokeWidth={2.5}
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-    </svg>
-  )
-}
-
-function CrossIcon() {
-  return (
-    <svg className="w-4 h-4 shrink-0 mt-0.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }
@@ -61,10 +42,10 @@ export default function PricingPage() {
           <div className="text-center mb-16">
             <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-3">Tarifs</p>
             <h1 className="text-4xl font-extrabold tracking-tight text-white mb-4">
-              Simple. Transparent. Sans surprise.
+              Un abonnement qui se rembourse<br />dès la première relance.
             </h1>
             <p className="text-slate-400 max-w-md mx-auto">
-              Commencez gratuitement. Passez Premium pour débloquer l'ensemble des features disponibles.
+              Commencez gratuitement, passez Premium quand vous en avez besoin.
             </p>
           </div>
 
@@ -73,7 +54,6 @@ export default function PricingPage() {
 
             {/* Premium */}
             <div className="relative bg-indigo-600 border border-indigo-500 rounded-2xl p-8 flex flex-col shadow-2xl shadow-indigo-900/40">
-              {/* Badge */}
               <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                 <span className="bg-white text-indigo-700 text-xs font-bold px-3 py-1 rounded-full shadow">
                   Recommandé
@@ -93,14 +73,28 @@ export default function PricingPage() {
 
               <CheckoutButton />
 
-              <ul className="space-y-3 flex-1">
-                {PREMIUM_FEATURES.map(f => (
-                  <li key={f} className="flex items-start gap-3 text-sm text-white">
+              {/* Features communes */}
+              <ul className="space-y-3 mb-5">
+                {COMMON_FEATURES.map(f => (
+                  <li key={f} className="flex items-start gap-3 text-sm text-indigo-200">
                     <CheckIcon />
                     {f}
                   </li>
                 ))}
               </ul>
+
+              {/* Séparateur premium exclusif */}
+              <div className="border-t border-indigo-500/60 pt-5 mb-3">
+                <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest mb-3">Exclusif Premium</p>
+                <ul className="space-y-3">
+                  {PREMIUM_ONLY.map(f => (
+                    <li key={f} className="flex items-start gap-3 text-sm text-white font-medium">
+                      <CheckIcon bright />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             {/* Free */}
@@ -121,20 +115,32 @@ export default function PricingPage() {
                 Commencer gratuitement
               </Link>
 
-              <ul className="space-y-3 flex-1">
-                {FREE_FEATURES.map(f => (
+              <ul className="space-y-3 mb-5">
+                {COMMON_FEATURES.map(f => (
                   <li key={f} className="flex items-start gap-3 text-sm text-slate-300">
                     <CheckIcon />
                     {f}
                   </li>
                 ))}
-                {FREE_MISSING.map(f => (
-                  <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
-                    <CrossIcon />
-                    {f}
-                  </li>
-                ))}
+                <li className="flex items-start gap-3 text-sm text-slate-300">
+                  <CheckIcon />
+                  1 facture active
+                </li>
               </ul>
+
+              <div className="border-t border-slate-700 pt-5">
+                <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-3">Non inclus</p>
+                <ul className="space-y-3">
+                  {PREMIUM_ONLY.map(f => (
+                    <li key={f} className="flex items-start gap-3 text-sm text-slate-600">
+                      <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
 

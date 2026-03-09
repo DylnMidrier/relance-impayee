@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FormState, EmailTemplate, genEmails, genEmailLevel } from '../lib/emails'
 import { createClient } from '../lib/supabase'
 import FormSection from './FormSection'
@@ -17,6 +17,13 @@ export default function HomeClient() {
   const [toastClosing, setToastClosing] = useState(false)
   const [userPlan, setUserPlan] = useState<Plan>('free')
   const [showUpgrade, setShowUpgrade] = useState(false)
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data: { user } }) => {
+      const given = user?.user_metadata?.given_name ?? user?.user_metadata?.full_name?.split(' ')[0] ?? ''
+      if (given) setForm(prev => ({ ...prev, prenom: given }))
+    })
+  }, [])
 
   function showToast(message: string, type: 'success' | 'error') {
     setToast({ message, type })
@@ -45,7 +52,7 @@ export default function HomeClient() {
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id)
           .neq('statut', 'payé')
-        if ((count ?? 0) >= 2) {
+        if ((count ?? 0) >= 1) {
           setShowUpgrade(true)
           return
         }
@@ -115,7 +122,7 @@ export default function HomeClient() {
         show={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         feature="Limite du plan Gratuit atteinte"
-        description="Vous avez déjà 2 factures actives. Vos relances ne seront pas générées ni sauvegardées tant que vous restez sur le plan Gratuit."
+        description="Vous avez déjà 1 facture active. Passez Premium pour gérer plusieurs factures impayées simultanément."
       />
       {toast && (
         <div className="fixed bottom-6 left-0 right-0 z-[80] flex justify-center px-4 pointer-events-none">

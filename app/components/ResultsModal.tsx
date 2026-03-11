@@ -15,6 +15,7 @@ interface Props {
   relanceId: string | null
   plan: Plan
   onSent?: (relanceId: string, levels: number[]) => void
+  onActivateAutoSend?: (alreadySentLevels: number[]) => Promise<void>
 }
 
 function buildMailtoHref(to: string, subject: string, body: string) {
@@ -31,7 +32,7 @@ const rainbowBorder = (active: boolean): React.CSSProperties => ({
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId, plan, onSent }: Props) {
+export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId, plan, onSent, onActivateAutoSend }: Props) {
   const emailValid = EMAIL_RE.test(form.emailClient)
   const [copied, setCopied] = useState<number | null>(null)
   const [editedBodies, setEditedBodies] = useState<Record<number, string>>({})
@@ -51,6 +52,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
   const [showCloseDialog, setShowCloseDialog] = useState(false)
   const [sentLevels, setSentLevels] = useState<number[]>([])    // envoyés via bouton "Envoyer"
   const [manualSentLevels, setManualSentLevels] = useState<number[]>([]) // sélectionnés dans la dialog
+  const [wantAutoSend, setWantAutoSend] = useState(false)
 
   function showToast(message: string) {
     setToast(message)
@@ -120,6 +122,9 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
           )
         )
         onSent?.(relanceId, manualSentLevels)
+      }
+      if (wantAutoSend) {
+        await onActivateAutoSend?.(withSave ? manualSentLevels : [])
       }
     }
     onClose()
@@ -376,6 +381,27 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
               })}
             </div>
 
+            {/* Envoi automatique */}
+            <div className="border-t border-gray-100 pt-3">
+              <label className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${wantAutoSend ? 'bg-indigo-50 border-indigo-300' : 'border-gray-200 hover:border-gray-300'}`}>
+                <input
+                  type="checkbox"
+                  checked={wantAutoSend}
+                  onChange={e => setWantAutoSend(e.target.checked)}
+                  disabled={!EMAIL_RE.test(form.emailClient)}
+                  className="mt-0.5 rounded accent-indigo-600"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">Activer l'envoi automatique</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {EMAIL_RE.test(form.emailClient)
+                      ? 'Les prochains niveaux seront envoyés automatiquement aux bonnes dates.'
+                      : 'Ajoutez un email client valide pour activer cette option.'}
+                  </p>
+                </div>
+              </label>
+            </div>
+
             <div className="flex gap-2">
               <button
                 onClick={() => handleConfirmClose(false)}
@@ -385,7 +411,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
               </button>
               <button
                 onClick={() => handleConfirmClose(true)}
-                disabled={manualSentLevels.length === 0}
+                disabled={manualSentLevels.length === 0 && !wantAutoSend}
                 className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Enregistrer

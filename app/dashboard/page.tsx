@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import Nav from '../components/Nav'
-import Footer from '../components/Footer'
+import DashboardNav from '../components/DashboardNav'
+import DashboardFooter from '../components/DashboardFooter'
 import DashboardClient from './DashboardClient'
 import { getUserPlan } from '../lib/plan'
 import type { Plan } from '../lib/plan'
@@ -14,7 +14,18 @@ export type Relance = {
   statut: 'planifiée' | 'envoyée'
   date_planifiee: string | null
   date_envoi: string | null
+  body_override: string | null
+  subject_override: string | null
   created_at: string
+}
+
+export type ScheduledSend = {
+  id: string
+  facture_id: string
+  niveau: number
+  send_at: string
+  sent_at: string | null
+  error: string | null
 }
 
 export type Facture = {
@@ -28,6 +39,7 @@ export type Facture = {
   created_at: string
   gcal_event_ids: string[] | null
   relances: Relance[]
+  scheduled_sends: ScheduledSend[]
 }
 
 export type { Plan }
@@ -56,16 +68,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   const PAGE_SIZE = 50
   const [{ data, count }, plan] = await Promise.all([
-    supabase.from('factures').select('*, relances(*)', { count: 'estimated' }).eq('user_id', user.id).order('created_at', { ascending: false }).limit(PAGE_SIZE),
+    supabase.from('factures').select('*, relances(*), scheduled_sends(*)', { count: 'estimated' }).eq('user_id', user.id).order('created_at', { ascending: false }).limit(PAGE_SIZE),
     getUserPlan(user.id),
   ])
   const hasMore = (count ?? 0) > PAGE_SIZE
 
   return (
     <>
-      <Nav />
+      <DashboardNav plan={plan} />
       <DashboardClient factures={(data ?? []) as Facture[]} plan={plan} paymentSuccess={paymentSuccess} hasMore={hasMore} userId={user.id} />
-      <Footer />
+      <DashboardFooter />
     </>
   )
 }

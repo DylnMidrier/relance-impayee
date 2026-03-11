@@ -2,17 +2,22 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
-import type { Facture, Relance, Plan } from './page'
+import type { Facture, Relance, ScheduledSend, Plan } from './page'
 import { FormState, EmailTemplate, genEmails, genEmailLevel } from '../lib/emails'
 import UpgradeModal from '../components/UpgradeModal'
 import ResultsModal from '../components/ResultsModal'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr)
+  const d = parseLocalDate(dateStr)
   d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  return isoDate(d)
 }
 
 function isoDate(d: Date): string {
@@ -27,6 +32,17 @@ function formatEuro(n: number | null) {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 }
 
+function FormatEuroSplit({ n }: { n: number | null }) {
+  if (n == null) return <span>—</span>
+  const formatted = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n)
+  return (
+    <>
+      <span>{formatted}</span>
+      <span className="text-lg font-bold text-[#8891b4] ml-1">€</span>
+    </>
+  )
+}
+
 function formatDateShort(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
@@ -39,9 +55,9 @@ function normalizeStatus(statut: string | null) {
 const DAY_ABBR = ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa']
 
 const LEVEL_COLORS: Record<number, { chip: string; dot: string }> = {
-  1: { chip: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-400' },
-  2: { chip: 'bg-amber-100 text-amber-700', dot: 'bg-amber-400' },
-  3: { chip: 'bg-red-100 text-red-700', dot: 'bg-red-400' },
+  1: { chip: 'bg-indigo-900/40 text-indigo-300', dot: 'bg-indigo-400' },
+  2: { chip: 'bg-amber-900/40 text-amber-300', dot: 'bg-amber-400' },
+  3: { chip: 'bg-red-900/40 text-red-300', dot: 'bg-red-400' },
 }
 
 const LEVEL_LABELS: Record<number, string> = { 1: 'J+7', 2: 'J+15', 3: 'J+30' }
@@ -338,6 +354,61 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
     setTimeout(() => { setToastClosing(true); setTimeout(() => setToast(null), 320) }, 4000)
   }
 
+  async function handleToggleAutoSend(facture: Facture) {
+    if (plan === 'free') { setUpgradeContext('gcal'); setShowUpgrade(true); return }
+    if (!facture.email_client) {
+      showToast('Ajoutez l\'email du client pour activer l\'envoi automatique.', 'error')
+      return
+    }
+    const supabase = createClient()
+    const isActive = (facture.scheduled_sends ?? []).some(s => !s.sent_at)
+
+    if (isActive) {
+      // Désactiver — supprimer les scheduled_sends non envoyés
+      await supabase
+        .from('scheduled_sends')
+        .delete()
+        .eq('facture_id', facture.id)
+        .is('sent_at', null)
+      setFactures(prev => prev.map(f =>
+        f.id === facture.id
+          ? { ...f, scheduled_sends: (f.scheduled_sends ?? []).filter(s => s.sent_at !== null) }
+          : f
+      ))
+      showToast('Envoi automatique désactivé.', 'success')
+    } else {
+      // Activer — créer les scheduled_sends pour les niveaux non encore envoyés
+      if (!facture.date_echeance) {
+        showToast('Ajoutez une date d\'échéance pour activer l\'envoi automatique.', 'error')
+        return
+      }
+      const OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
+      const niveauxRestants = [1, 2, 3].filter(n =>
+        !(facture.relances ?? []).some(r => r.niveau === n && r.statut === 'envoyée') &&
+        !(facture.scheduled_sends ?? []).some(s => s.niveau === n && !s.sent_at)
+      )
+      const rows = niveauxRestants.map(n => {
+        const d = parseLocalDate(facture.date_echeance!)
+        d.setDate(d.getDate() + OFFSETS[n])
+        return { facture_id: facture.id, niveau: n, send_at: d.toISOString() }
+      })
+      if (!rows.length) {
+        showToast('Tous les niveaux ont déjà été envoyés.', 'success')
+        return
+      }
+      const { data: inserted } = await supabase
+        .from('scheduled_sends')
+        .insert(rows)
+        .select()
+      setFactures(prev => prev.map(f =>
+        f.id === facture.id
+          ? { ...f, scheduled_sends: [...(f.scheduled_sends ?? []), ...(inserted ?? [])] }
+          : f
+      ))
+      showToast(`Envoi automatique activé — ${rows.length} email${rows.length > 1 ? 's' : ''} programmé${rows.length > 1 ? 's' : ''}.`, 'success')
+    }
+  }
+
   async function handleGenerateSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
 
@@ -450,76 +521,65 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-gray-50 pb-16">
+    <main className="min-h-screen bg-[#0c0e14] pb-16">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <a
-            href="/"
-            className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-indigo-600 transition-colors no-underline"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Retour à l'accueil
-          </a>
-          <div className="flex items-center gap-2">
-            {plan === 'premium' && (
-              <button
-                onClick={handleManageSubscription}
-                disabled={portalLoading}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 transition-colors disabled:opacity-50"
-              >
-                {portalLoading ? 'Chargement…' : 'Gérer mon abonnement'}
-              </button>
-            )}
+        <div className="flex items-center justify-end gap-2">
+          {plan === 'premium' && (
             <button
-              onClick={() => { setGenerateForm(emptyForm); setShowGenerateModal(true) }}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+              onClick={handleManageSubscription}
+              disabled={portalLoading}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-white/10 text-[#8891b4] hover:border-white/20 hover:text-[#f0f2ff] transition-colors disabled:opacity-50"
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              Nouvelle facture
+              {portalLoading ? 'Chargement…' : 'Gérer mon abonnement'}
             </button>
-          </div>
+          )}
+          <button
+            onClick={() => { setGenerateForm(emptyForm); setShowGenerateModal(true) }}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-[#7c6dfa] hover:bg-[#6a5be0] text-white transition-colors shadow-[0_0_20px_rgba(124,109,250,0.25)]"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Nouvelle facture
+          </button>
         </div>
 
         {/* ── KPI summary ─────────────────────────────────────────────────── */}
         <section className="grid grid-cols-3 gap-3 sm:gap-4">
-          <div className="bg-white border border-gray-200 rounded-xl p-3.5 sm:p-5">
-            <p className="text-[10px] sm:text-xs font-medium text-gray-400 mb-1 sm:mb-1.5 leading-tight">
+          <div className="bg-[#13151f] border border-white/[0.07] rounded-xl p-3.5 sm:p-5">
+            <p className="text-[10px] sm:text-xs font-medium text-[#454d6e] mb-1 sm:mb-1.5 leading-tight uppercase tracking-wider">
               <span className="sm:hidden">En attente</span>
               <span className="hidden sm:inline">Montant en attente</span>
             </p>
-            <p className="text-base sm:text-2xl font-black text-gray-900 tracking-tight">{formatEuro(kpis.enAttente)}</p>
+            <p className="text-base sm:text-2xl font-black text-[#f0f2ff] tracking-tight">{formatEuro(kpis.enAttente)}</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-3.5 sm:p-5">
-            <p className="text-[10px] sm:text-xs font-medium text-gray-400 mb-1 sm:mb-1.5 leading-tight">
+          <div className="bg-[#13151f] border border-white/[0.07] rounded-xl p-3.5 sm:p-5">
+            <p className="text-[10px] sm:text-xs font-medium text-[#454d6e] mb-1 sm:mb-1.5 leading-tight uppercase tracking-wider">
               <span className="sm:hidden">En cours</span>
               <span className="hidden sm:inline">Factures en cours</span>
             </p>
-            <p className="text-base sm:text-2xl font-black text-gray-900 tracking-tight">{kpis.enCours}</p>
+            <p className="text-base sm:text-2xl font-black text-[#f0f2ff] tracking-tight">{kpis.enCours}</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-3.5 sm:p-5">
-            <p className="text-[10px] sm:text-xs font-medium text-gray-400 mb-1 sm:mb-1.5 leading-tight">
+          <div className="bg-[#13151f] border border-white/[0.07] rounded-xl p-3.5 sm:p-5">
+            <p className="text-[10px] sm:text-xs font-medium text-[#454d6e] mb-1 sm:mb-1.5 leading-tight uppercase tracking-wider">
               <span className="sm:hidden">Récupéré</span>
               <span className="hidden sm:inline">Montant récupéré</span>
             </p>
-            <p className="text-base sm:text-2xl font-black text-green-600 tracking-tight">{formatEuro(kpis.recupere)}</p>
+            <p className="text-base sm:text-2xl font-black text-emerald-400 tracking-tight">{formatEuro(kpis.recupere)}</p>
           </div>
         </section>
 
         {/* ── Calendar ────────────────────────────────────────────────────── */}
-        <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-gray-100">
+        <section className="bg-[#13151f] border border-white/[0.07] rounded-xl overflow-hidden">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-4 border-b border-white/[0.05]">
             <div>
-              <h2 className="text-sm font-bold text-gray-900">Calendrier des relances</h2>
-              <p className="text-xs text-gray-400 mt-0.5">Rappels calculés depuis la date d'échéance · J+7 · J+15 · J+30</p>
+              <h2 className="text-sm font-bold text-[#f0f2ff]">Calendrier des relances</h2>
+              <p className="text-xs text-[#454d6e] mt-0.5">Rappels calculés 7, 15 et 30 jours après l'échéance</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {!gcalMsg && syncableTotal > 0 && (
                 unsyncedCount > 0 ? (
-                  <div className="flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1.5">
+                  <div className="flex items-center gap-2 text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-full px-3 py-1.5">
                     <span className="relative flex h-2 w-2 shrink-0">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
@@ -527,7 +587,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                     {unsyncedCount} relance{unsyncedCount > 1 ? 's' : ''} non synchronisée{unsyncedCount > 1 ? 's' : ''}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-3 py-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1.5">
                     <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
@@ -537,7 +597,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               )}
 
               {gcalMsg && (
-                <div className="flex items-center gap-2 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-full px-3 py-1.5">
+                <div className="flex items-center gap-2 text-xs font-medium text-red-400 bg-red-500/10 border border-red-500/20 rounded-full px-3 py-1.5">
                   <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
@@ -545,7 +605,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                   {gcalMsg.needsReauth && (
                     <button
                       onClick={handleReauth}
-                      className="ml-1 font-semibold text-indigo-600 hover:text-indigo-700 underline underline-offset-2 transition-colors whitespace-nowrap"
+                      className="ml-1 font-semibold text-[#7c6dfa] hover:text-[#9d91fb] underline underline-offset-2 transition-colors whitespace-nowrap"
                     >
                       Autoriser →
                     </button>
@@ -553,7 +613,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                   {gcalMsg.canRetry && (
                     <button
                       onClick={() => { setGcalMsg(null); handleGCalSync() }}
-                      className="ml-1 font-semibold text-red-600 hover:text-red-700 underline underline-offset-2 transition-colors whitespace-nowrap"
+                      className="ml-1 font-semibold text-red-400 hover:text-red-300 underline underline-offset-2 transition-colors whitespace-nowrap"
                     >
                       Réessayer →
                     </button>
@@ -564,19 +624,19 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               {plan === 'free' ? (
                 <button
                   onClick={() => { setUpgradeContext('gcal'); setShowUpgrade(true) }}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 whitespace-nowrap"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-white/10 text-[#454d6e] whitespace-nowrap"
                 >
                   <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                   Sync Google Calendar
-                  <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full">Premium</span>
+                  <span className="text-[10px] font-bold text-[#7c6dfa] bg-[#7c6dfa]/10 px-1.5 py-0.5 rounded-full">Premium</span>
                 </button>
               ) : (
                 <button
                   onClick={handleGCalSync}
                   disabled={syncing}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:border-indigo-400 hover:text-indigo-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-white/10 text-[#8891b4] hover:border-[#7c6dfa]/40 hover:text-[#7c6dfa] transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
                   <svg className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     {syncing
@@ -590,7 +650,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-white/5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full">
             <div className="flex min-w-max px-4 py-4 gap-1">
               {days.map((day) => {
                 const key = isoDate(day)
@@ -598,11 +658,11 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                 const events = eventsByDate[key] ?? []
                 return (
                   <div key={key} className="flex flex-col items-center min-w-[56px]">
-                    <div className={`text-[10px] font-medium mb-1 ${isToday ? 'text-indigo-600' : 'text-gray-400'}`}>
+                    <div className={`text-[10px] font-medium mb-1 ${isToday ? 'text-[#7c6dfa]' : 'text-[#454d6e]'}`}>
                       {DAY_ABBR[day.getDay()]}
                     </div>
                     <div className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full mb-2 ${
-                      isToday ? 'bg-indigo-600 text-white' : 'text-gray-700'
+                      isToday ? 'bg-[#7c6dfa] text-white' : 'text-[#8891b4]'
                     }`}>
                       {day.getDate()}
                     </div>
@@ -613,7 +673,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                           onClick={() => openEditEvent(facture, niveau)}
                           title={`${facture.nom_client} — Niveau ${niveau} (${LEVEL_LABELS[niveau]})\nCliquer pour modifier l'échéance`}
                           className={`text-[10px] font-medium px-1 py-0.5 rounded text-left leading-tight w-full truncate transition-opacity hover:opacity-80 ${
-                            sent ? 'opacity-35' : ''
+                            sent ? 'opacity-30' : ''
                           } ${LEVEL_COLORS[niveau].chip}`}
                         >
                           {LEVEL_LABELS[niveau]} {facture.nom_client.split(' ')[0]}
@@ -626,32 +686,45 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
             </div>
           </div>
 
-          <div className="flex items-center gap-5 px-5 py-3 border-t border-gray-100">
+          <div className="flex items-center gap-5 px-5 py-3 border-t border-white/[0.05]">
             {([1, 2, 3] as const).map(n => (
               <div key={n} className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full ${LEVEL_COLORS[n].dot}`} />
-                <span className="text-[10px] text-gray-500">Niveau {n} — {LEVEL_LABELS[n]}</span>
+                <span className="text-[10px] text-[#454d6e]">Niveau {n} — {LEVEL_LABELS[n]}</span>
               </div>
             ))}
             <div className="flex items-center gap-1.5 ml-1">
-              <div className="w-2 h-2 rounded-full bg-gray-200" />
-              <span className="text-[10px] text-gray-400">Déjà envoyé</span>
+              <div className="w-2 h-2 rounded-full bg-white/10" />
+              <span className="text-[10px] text-[#454d6e]">Déjà envoyé</span>
             </div>
           </div>
         </section>
 
         {/* ── Historique ──────────────────────────────────────────────────── */}
-        <section className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="text-sm font-bold text-gray-900">Historique des factures</h2>
+        <section className="bg-[#13151f] border border-white/[0.07] rounded-xl overflow-hidden">
+          <div className="px-5 py-5 border-b border-white/[0.05]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold mb-0.5 bg-gradient-to-r from-[#f0f2ff] to-[#7c6dfa] bg-clip-text text-transparent inline-block">
+                  Historique des factures
+                </h2>
+                <p className="text-xs text-[#454d6e]">
+                  {factures.filter(f => f.statut !== 'payé').length} facture{factures.filter(f => f.statut !== 'payé').length !== 1 ? 's' : ''} · En cours de recouvrement
+                </p>
+              </div>
+              <div className="bg-[#7c6dfa]/10 border border-[#7c6dfa]/20 rounded-xl px-4 py-2.5 text-right shrink-0">
+                <p className="text-[9px] font-semibold text-[#454d6e] uppercase tracking-widest mb-0.5">Total impayé</p>
+                <p className="text-lg font-black text-[#f0f2ff] leading-none">{formatEuro(kpis.enAttente)}</p>
+              </div>
+            </div>
           </div>
 
           {factures.length === 0 ? (
-            <div className="px-5 py-14 text-center text-sm text-gray-400 flex flex-col items-center gap-3">
+            <div className="px-5 py-14 text-center text-sm text-[#454d6e] flex flex-col items-center gap-3">
               <span>Aucune relance pour l'instant.</span>
               <button
                 onClick={() => { setGenerateForm(emptyForm); setShowGenerateModal(true) }}
-                className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl bg-[#7c6dfa] hover:bg-[#6a5be0] text-white transition-colors"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -660,90 +733,124 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="p-4 space-y-3">
               {factures.map((facture) => {
                 const status = normalizeStatus(facture.statut)
                 return (
-                  <div key={facture.id} className="px-4 sm:px-5 py-3.5">
+                  <div key={facture.id} className="bg-[#0c0e14]/50 border border-white/[0.06] rounded-2xl p-4 sm:p-5">
                     {/* Row 1 — nom + select statut + supprimer */}
-                    <div className="flex items-center gap-2 min-w-0 mb-2">
-                      <p className="text-sm font-semibold text-gray-900 truncate flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 mb-4">
+                      <p className="text-sm font-bold text-[#f0f2ff] truncate flex-1 min-w-0 capitalize">
                         {facture.nom_client}
                       </p>
                       <select
                         value={status}
                         onChange={e => handleStatusChange(facture.id, e.target.value)}
-                        className={`shrink-0 text-xs font-medium px-2 py-1.5 rounded-lg border cursor-pointer appearance-none transition-colors ${
+                        className={`shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-full border cursor-pointer appearance-none transition-colors uppercase tracking-wide ${
                           status === 'payé'
-                            ? 'border-green-200 bg-green-50 text-green-700'
+                            ? 'bg-emerald-500/15 border-emerald-500/25 text-emerald-400'
                             : status === 'litigieux'
-                            ? 'border-red-200 bg-red-50 text-red-700'
-                            : 'border-gray-200 bg-white text-gray-600'
+                            ? 'bg-red-500/15 border-red-500/25 text-red-400'
+                            : 'bg-amber-500/15 border-amber-500/25 text-amber-400'
                         }`}
                       >
                         {STATUS_OPTIONS.map(o => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
+                          <option key={o.value} value={o.value} className="bg-[#13151f] text-[#f0f2ff] normal-case">{o.label}</option>
                         ))}
                       </select>
                       <button
                         onClick={() => setDeletingFacture({ facture, deleteGCal: plan !== 'free' && (facture.gcal_event_ids?.length ?? 0) > 0 })}
                         title="Supprimer cette relance"
-                        className="shrink-0 p-1.5 text-gray-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                        className="shrink-0 p-2 text-[#454d6e] hover:text-red-400 hover:bg-red-500/10 rounded-lg border border-white/[0.07] transition-colors"
                       >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                     </div>
 
-                    {/* Row 2 — facture badge + N badges + métadonnées */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {facture.numero_facture && (
-                        <span className="text-[10px] font-medium text-gray-500 bg-gray-100 border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
-                          {facture.numero_facture}
-                        </span>
-                      )}
-                      <div className="flex items-start gap-2 shrink-0">
-                        {([1, 2, 3] as const).map(n => {
-                          const sent = (facture.relances ?? []).some(r => r.niveau === n && r.statut === 'envoyée')
-                          const dateStr = facture.date_echeance ? addDays(facture.date_echeance, LEVEL_OFFSETS[n]) : null
-                          const dateLabel = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
-                          return (
-                            <div key={n} className="flex flex-col items-center gap-0.5">
-                              <button
-                                onClick={() => handleToggleEnvoi(facture, n)}
-                                title={sent ? `Annuler N${n}` : `Marquer N${n} comme envoyé`}
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded transition-all cursor-pointer hover:scale-110 ${
-                                  sent ? LEVEL_COLORS[n].chip : 'bg-gray-100 text-gray-300 hover:bg-gray-200 hover:text-gray-400'
-                                }`}
-                              >
-                                N{n}
-                              </button>
-                              {dateLabel && (
-                                <span className="text-[9px] text-gray-300 leading-none">{dateLabel}</span>
-                              )}
-                            </div>
-                          )
-                        })}
+                    {/* Row 2 — bloc infos (ref / montant / échéance + email) */}
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 sm:p-4 mb-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-4">
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-semibold text-[#454d6e] uppercase tracking-widest mb-1.5">Référence</p>
+                        <p className="font-mono text-xs text-[#8891b4] truncate">
+                          {facture.numero_facture ?? '—'}
+                        </p>
                       </div>
-                      <p className="text-xs flex items-center gap-1.5 flex-wrap">
-                        <span className="font-semibold text-gray-700">{facture.montant != null ? formatEuro(facture.montant) : '—'}</span>
-                        {facture.date_echeance && (
-                          <>
-                            <span className="text-gray-300">·</span>
-                            <span className="text-gray-500">Échéance {formatDateShort(facture.date_echeance)}</span>
-                          </>
+                      <div className="text-center shrink-0">
+                        <p className="text-xl sm:text-3xl font-black text-[#f0f2ff] tracking-tight leading-none flex items-baseline justify-center">
+                          <FormatEuroSplit n={facture.montant} />
+                        </p>
+                      </div>
+                      <div className="text-right min-w-0">
+                        <p className="text-[9px] font-semibold text-[#454d6e] uppercase tracking-widest mb-1.5">Échéance</p>
+                        {facture.date_echeance ? (
+                          <p className="text-base font-bold text-amber-400 leading-none">{formatDateShort(facture.date_echeance)}</p>
+                        ) : (
+                          <p className="text-sm text-[#454d6e]">—</p>
                         )}
-                        <span className="text-gray-300">·</span>
-                        <span className="text-gray-400">{new Date(facture.created_at).toLocaleDateString('fr-FR')}</span>
-                      </p>
+                        {facture.email_client && (
+                          <p className="text-[10px] text-[#454d6e] truncate mt-1">{facture.email_client}</p>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Row 3 — supprimer GCal (premium only) */}
+                    {/* Row 3 — niveaux + envoi auto sur la même ligne */}
+                    {status !== 'payé' && (() => {
+                      const autoActive = (facture.scheduled_sends ?? []).some(s => !s.sent_at)
+                      const nextSend = (facture.scheduled_sends ?? [])
+                        .filter(s => !s.sent_at)
+                        .sort((a, b) => new Date(a.send_at).getTime() - new Date(b.send_at).getTime())[0]
+                      const sentColors = ['', 'bg-indigo-500/15 text-indigo-300 border-indigo-500/25', 'bg-amber-500/15 text-amber-300 border-amber-500/25', 'bg-red-500/15 text-red-300 border-red-500/25']
+                      const sentDots = ['', 'bg-indigo-400', 'bg-amber-400', 'bg-red-400']
+                      return (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {([1, 2, 3] as const).map(n => {
+                            const sent = (facture.relances ?? []).some(r => r.niveau === n && r.statut === 'envoyée')
+                            const dateStr = facture.date_echeance ? addDays(facture.date_echeance, LEVEL_OFFSETS[n]) : null
+                            const dateLabel = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
+                            return (
+                              <button
+                                key={n}
+                                onClick={() => handleToggleEnvoi(facture, n)}
+                                title={sent ? `Annuler N${n}` : `Marquer N${n} comme envoyé`}
+                                className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                                  sent
+                                    ? sentColors[n]
+                                    : 'bg-white/[0.03] border-white/[0.08] text-[#454d6e] hover:border-white/[0.15] hover:text-[#8891b4]'
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sent ? sentDots[n] : 'bg-white/20'}`} />
+                                N{n}
+                                {dateLabel && (
+                                  <span className={`font-normal hidden sm:inline ${sent ? 'opacity-70' : 'text-[#454d6e]'}`}>· {dateLabel}</span>
+                                )}
+                              </button>
+                            )
+                          })}
+                          <button
+                            onClick={() => handleToggleAutoSend(facture)}
+                            className={`ml-auto inline-flex items-center gap-2 text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${
+                              autoActive
+                                ? 'bg-[#7c6dfa] text-white shadow-[0_0_20px_rgba(124,109,250,0.35)] hover:bg-[#6a5be0]'
+                                : 'border border-white/10 text-[#454d6e] hover:border-[#7c6dfa]/40 hover:text-[#7c6dfa]'
+                            }`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${autoActive ? 'bg-white animate-pulse' : 'bg-white/20'}`} />
+                            Envoi auto
+                            {autoActive && nextSend && (
+                              <span className="font-normal opacity-80 hidden sm:inline">
+                                — {new Date(nextSend.send_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      )
+                    })()}
                     {status === 'payé' && (facture.gcal_event_ids?.length ?? 0) > 0 && plan !== 'free' && (
                       <button
                         onClick={() => handleDeleteGCalEvents(facture)}
-                        className="mt-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors underline underline-offset-2"
+                        className="mt-1.5 text-xs text-[#454d6e] hover:text-red-400 transition-colors underline underline-offset-2"
                       >
                         Supprimer rappels Calendar
                       </button>
@@ -755,11 +862,11 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
           )}
 
           {hasMore && (
-            <div className="px-5 py-4 border-t border-gray-100 text-center">
+            <div className="px-5 py-4 border-t border-white/[0.05] text-center">
               <button
                 onClick={handleLoadMore}
                 disabled={loadingMore}
-                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 disabled:opacity-50 transition-colors"
+                className="text-xs font-semibold text-[#7c6dfa] hover:text-[#9d91fb] disabled:opacity-50 transition-colors"
               >
                 {loadingMore ? 'Chargement…' : 'Charger plus'}
               </button>
@@ -772,7 +879,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       {/* ── Edit date modal ──────────────────────────────────────────────── */}
       {editingEvent && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
           onClick={e => { if (e.target === e.currentTarget) setEditingEvent(null) }}
         >
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
@@ -819,13 +926,13 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       {/* ── Generate modal ───────────────────────────────────────────────── */}
       {showGenerateModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
           onClick={e => { if (e.target === e.currentTarget) setShowGenerateModal(false) }}
         >
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-gray-100">
-              <h3 className="text-sm font-bold text-gray-900">Nouvelle facture</h3>
-              <button onClick={() => setShowGenerateModal(false)} className="text-gray-300 hover:text-gray-500 transition-colors">
+          <div className="bg-[#13151f] border border-white/[0.08] rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/[0.07]">
+              <h3 className="text-sm font-bold text-[#f0f2ff]">Nouvelle facture</h3>
+              <button onClick={() => setShowGenerateModal(false)} className="text-[#454d6e] hover:text-[#8891b4] transition-colors">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -839,7 +946,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                 { id: 'echeance',    label: "Date d'échéance", type: 'date',   placeholder: '',                             required: true },
               ] as const).map(({ id, label, type, placeholder, required }) => (
                 <div key={id}>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1.5">{label}</label>
+                  <label className="block text-xs font-semibold text-[#8891b4] mb-1.5">{label}</label>
                   <input
                     type={type}
                     placeholder={placeholder}
@@ -847,14 +954,14 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                     min={type === 'number' ? 1 : undefined}
                     value={generateForm[id]}
                     onChange={e => setGenerateForm(prev => ({ ...prev, [id]: e.target.value }))}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all placeholder:text-gray-300 [&[type=date]]:pr-2"
+                    className="w-full px-3 py-2.5 bg-[#0c0e14] border border-white/[0.08] rounded-lg text-sm text-[#f0f2ff] outline-none focus:border-[#7c6dfa]/60 focus:ring-2 focus:ring-[#7c6dfa]/10 transition-all placeholder:text-[#454d6e] [&[type=date]]:pr-2 [color-scheme:dark]"
                   />
                 </div>
               ))}
               <button
                 type="submit"
                 disabled={generateLoading}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl transition-colors mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full py-3 bg-[#7c6dfa] hover:bg-[#6a5be0] text-white text-sm font-bold rounded-xl transition-colors mt-2 disabled:opacity-60 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(124,109,250,0.25)]"
               >
                 {generateLoading ? 'Enregistrement…' : 'Générer mes 3 emails →'}
               </button>
@@ -876,6 +983,19 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
             ? { ...f, relances: f.relances.map(r => levels.includes(r.niveau) ? { ...r, statut: 'envoyée' as const, date_envoi: new Date().toISOString() } : r) }
             : f
         ))}
+        onActivateAutoSend={async (alreadySentLevels) => {
+          const facture = factures.find(f => f.id === generateFactureId)
+          if (!facture) return
+          const patchedFacture = {
+            ...facture,
+            relances: facture.relances.map(r =>
+              alreadySentLevels.includes(r.niveau)
+                ? { ...r, statut: 'envoyée' as const }
+                : r
+            ),
+          }
+          await handleToggleAutoSend(patchedFacture)
+        }}
       />
 
       {/* ── Toast ────────────────────────────────────────────────────────── */}
@@ -893,7 +1013,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       {/* ── Delete confirmation modal ─────────────────────────────────────── */}
       {deletingFacture && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
           onClick={e => { if (e.target === e.currentTarget && !deleting) setDeletingFacture(null) }}
         >
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
@@ -964,7 +1084,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       {/* ── GCal delete confirmation modal ───────────────────────────────── */}
       {confirmGCalDelete && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
           onClick={e => { if (e.target === e.currentTarget && !deletingGCal) setConfirmGCalDelete(null) }}
         >
           <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
@@ -1005,7 +1125,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       {/* ── Payment success modal ─────────────────────────────────────────── */}
       {showPaymentSuccess && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
           onClick={() => setShowPaymentSuccess(false)}
         >
           <div

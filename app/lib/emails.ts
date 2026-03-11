@@ -64,11 +64,22 @@ function interpolate(str: string, vars: Record<string, string>): string {
   return str.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '')
 }
 
+export const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
+
 // Métadonnées fixes par niveau (couleurs, labels)
-const LEVEL_META: Record<number, Pick<EmailTemplate, 'label' | 'tone' | 'dot' | 'tag' | 'border'>> = {
-  1: { label: 'Niveau 1 · J+7',  tone: 'Rappel amical',   dot: 'bg-green-500',  tag: 'bg-green-50 text-green-700',   border: 'border-l-green-500'  },
-  2: { label: 'Niveau 2 · J+15', tone: 'Relance ferme',   dot: 'bg-orange-500', tag: 'bg-orange-50 text-orange-700', border: 'border-l-orange-500' },
-  3: { label: 'Niveau 3 · J+30', tone: 'Mise en demeure', dot: 'bg-red-500',    tag: 'bg-red-50 text-red-700',       border: 'border-l-red-500'    },
+const LEVEL_META: Record<number, Pick<EmailTemplate, 'tone' | 'dot' | 'tag' | 'border'> & { baseLabel: string }> = {
+  1: { baseLabel: 'Niveau 1', tone: 'Rappel amical',   dot: 'bg-green-500',  tag: 'bg-green-50 text-green-700',   border: 'border-l-green-500'  },
+  2: { baseLabel: 'Niveau 2', tone: 'Relance ferme',   dot: 'bg-orange-500', tag: 'bg-orange-50 text-orange-700', border: 'border-l-orange-500' },
+  3: { baseLabel: 'Niveau 3', tone: 'Mise en demeure', dot: 'bg-red-500',    tag: 'bg-red-50 text-red-700',       border: 'border-l-red-500'    },
+}
+
+function sendDateLabel(echeance: string, days: number): string {
+  if (!echeance) return `J+${days}`
+  const [y, m, d] = echeance.split('-').map(Number)
+  if (!y || !m || !d) return `J+${days}`
+  const date = new Date(y, m - 1, d)
+  date.setDate(date.getDate() + days)
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
 // ─── Génération ─────────────────────────────────────────────────────────────
@@ -90,9 +101,11 @@ export function genEmailLevel(
     deadline: dateIn(5),
     prenom,
   }
+  const { baseLabel, ...meta } = LEVEL_META[level]
   return {
     level,
-    ...LEVEL_META[level],
+    ...meta,
+    label: `${baseLabel} · ${sendDateLabel(echeance, LEVEL_OFFSETS[level])}`,
     subject: interpolate(tpl.subject, vars),
     body:    interpolate(tpl.body, vars),
   }

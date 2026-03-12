@@ -1,8 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
+import { Resend } from 'resend'
 import { NextResponse } from 'next/server'
 
-// Route appelée par Vercel Cron toutes les heures
+// Route appelée par Vercel Cron une fois par jour à 9h30 Paris
 // Sécurisée par CRON_SECRET en Authorization header
+
+const resend = new Resend(process.env.RESEND_API_KEY)
+
+const NIVEAU_LABEL: Record<number, string> = {
+  1: '1re relance',
+  2: '2e relance',
+  3: 'Mise en demeure',
+}
 
 function buildRfc2822(to: string, subject: string, body: string): string {
   const lines = [
@@ -19,6 +28,80 @@ function buildRfc2822(to: string, subject: string, body: string): string {
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=+$/, '')
+}
+
+function buildNotifHtml(prenom: string, niveauLabel: string, nomClient: string, emailClient: string): string {
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
+    <tr><td align="center">
+      <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr><td style="background:#0c0e14;padding:28px 32px;">
+          <p style="margin:0;font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-0.3px;">recouvr<span style="color:#7c6dfa;">.</span>io</p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:32px;">
+
+          <!-- Icône succès -->
+          <table cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+            <tr><td style="width:40px;height:40px;background:#ecfdf5;border-radius:50%;text-align:center;vertical-align:middle;">
+              <span style="font-size:18px;line-height:40px;">✓</span>
+            </td></tr>
+          </table>
+
+          <p style="margin:0 0 8px;font-size:20px;font-weight:800;color:#0c0e14;letter-spacing:-0.3px;">Email envoyé automatiquement</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.5;">
+            ${prenom ? `Bonjour ${prenom},` : 'Bonjour,'} votre <strong style="color:#0c0e14;">${niveauLabel}</strong> a bien été envoyée à votre client.
+          </p>
+
+          <!-- Détails -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:12px;padding:16px 20px;margin-bottom:28px;">
+            <tr>
+              <td style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;padding-bottom:12px;">Détails de l'envoi</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#6b7280;padding-bottom:6px;">Niveau</td>
+              <td style="font-size:13px;font-weight:600;color:#0c0e14;text-align:right;">${niveauLabel}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#6b7280;padding-bottom:6px;">Client</td>
+              <td style="font-size:13px;font-weight:600;color:#0c0e14;text-align:right;">${nomClient}</td>
+            </tr>
+            <tr>
+              <td style="font-size:13px;color:#6b7280;">Destinataire</td>
+              <td style="font-size:13px;font-weight:600;color:#0c0e14;text-align:right;">${emailClient}</td>
+            </tr>
+          </table>
+
+          <!-- CTA -->
+          <table cellpadding="0" cellspacing="0">
+            <tr><td style="background:#7c6dfa;border-radius:10px;">
+              <a href="https://recouvr.io/dashboard" style="display:inline-block;padding:12px 24px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">
+                Voir mon tableau de bord →
+              </a>
+            </td></tr>
+          </table>
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="padding:16px 32px 28px;border-top:1px solid #f3f4f6;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
+            Vous recevez cet email car l'envoi automatique est activé sur recouvr.io.<br>
+            Pour le désactiver, rendez-vous dans votre <a href="https://recouvr.io/dashboard" style="color:#7c6dfa;text-decoration:none;">tableau de bord</a>.
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`
 }
 
 export async function GET(req: Request) {
@@ -40,7 +123,7 @@ export async function GET(req: Request) {
     .select(`
       id, facture_id, niveau,
       factures (
-        email_client, nom_client, date_echeance,
+        user_id, email_client, nom_client, date_echeance,
         profiles ( gmail_access_token, prenom )
       ),
       relances ( body_override, subject_override )
@@ -105,6 +188,21 @@ export async function GET(req: Request) {
           .eq('facture_id', send.facture_id)
           .eq('niveau', send.niveau),
       ])
+
+      // Notification email à l'utilisateur via Resend
+      if (process.env.RESEND_API_KEY && facture.user_id) {
+        const { data: { user: authUser } } = await supabase.auth.admin.getUserById(facture.user_id)
+        if (authUser?.email) {
+          const niveauLabel = NIVEAU_LABEL[send.niveau] ?? `Relance N${send.niveau}`
+          const prenom = facture.profiles?.prenom ?? ''
+          await resend.emails.send({
+            from: 'recouvr.io <notifications@recouvr.io>',
+            to: authUser.email,
+            subject: `✓ ${niveauLabel} envoyée à ${facture.nom_client}`,
+            html: buildNotifHtml(prenom, niveauLabel, facture.nom_client, facture.email_client),
+          }).catch(err => console.error('[cron/notif-resend]', err))
+        }
+      }
     })
   )
 

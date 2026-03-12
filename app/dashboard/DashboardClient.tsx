@@ -334,17 +334,38 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
 
   // ── Toggle envoi ──────────────────────────────────────────────────────────
   async function handleToggleEnvoi(facture: Facture, niveau: number) {
-    const rel = (facture.relances ?? []).find(r => r.niveau === niveau)
+    const relances = facture.relances ?? []
+    const rel = relances.find(r => r.niveau === niveau)
     if (!rel) return
     const isSent = rel.statut === 'envoyée'
-    const newStatut = isSent ? 'planifiée' : 'envoyée'
-    const newDateEnvoi = isSent ? null : new Date().toISOString()
-    await createClient().from('relances').update({ statut: newStatut, date_envoi: newDateEnvoi }).eq('id', rel.id)
-    setFactures(prev => prev.map(f =>
-      f.id === facture.id
-        ? { ...f, relances: f.relances.map(r => r.id === rel.id ? { ...r, statut: newStatut as Relance['statut'], date_envoi: newDateEnvoi } : r) }
-        : f
-    ))
+    const now = new Date().toISOString()
+    const supabase = createClient()
+
+    if (isSent) {
+      // Désactiver N → désactiver aussi tous les niveaux > N qui sont envoyés
+      const niveauxToDeactivate = [1, 2, 3].filter(n => n >= niveau && relances.some(r => r.niveau === n && r.statut === 'envoyée'))
+      await Promise.all(niveauxToDeactivate.map(n => {
+        const r = relances.find(r => r.niveau === n)!
+        return supabase.from('relances').update({ statut: 'planifiée', date_envoi: null }).eq('id', r.id)
+      }))
+      setFactures(prev => prev.map(f =>
+        f.id === facture.id
+          ? { ...f, relances: f.relances.map(r => niveauxToDeactivate.includes(r.niveau) ? { ...r, statut: 'planifiée' as Relance['statut'], date_envoi: null } : r) }
+          : f
+      ))
+    } else {
+      // Activer N → activer aussi tous les niveaux < N qui ne sont pas encore envoyés
+      const niveauxToActivate = [1, 2, 3].filter(n => n <= niveau && relances.some(r => r.niveau === n && r.statut !== 'envoyée'))
+      await Promise.all(niveauxToActivate.map(n => {
+        const r = relances.find(r => r.niveau === n)!
+        return supabase.from('relances').update({ statut: 'envoyée', date_envoi: now }).eq('id', r.id)
+      }))
+      setFactures(prev => prev.map(f =>
+        f.id === facture.id
+          ? { ...f, relances: f.relances.map(r => niveauxToActivate.includes(r.niveau) ? { ...r, statut: 'envoyée' as Relance['statut'], date_envoi: now } : r) }
+          : f
+      ))
+    }
   }
 
   // ── Generate handlers ─────────────────────────────────────────────────────
@@ -390,7 +411,9 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       const rows = niveauxRestants.map(n => {
         const d = parseLocalDate(facture.date_echeance!)
         d.setDate(d.getDate() + OFFSETS[n])
-        return { facture_id: facture.id, niveau: n, send_at: d.toISOString() }
+        // Utiliser Date.UTC sur les composantes locales pour éviter le décalage DST
+        const sendAt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 8, 30, 0, 0))
+        return { facture_id: facture.id, niveau: n, send_at: sendAt.toISOString() }
       })
       if (!rows.length) {
         showToast('Tous les niveaux ont déjà été envoyés.', 'success')
@@ -624,19 +647,18 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               {plan === 'free' ? (
                 <button
                   onClick={() => { setUpgradeContext('gcal'); setShowUpgrade(true) }}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-white/10 text-[#454d6e] whitespace-nowrap"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#7c6dfa]/30 text-[#7c6dfa] bg-[#7c6dfa]/5 hover:bg-[#7c6dfa]/15 hover:border-[#7c6dfa]/60 hover:shadow-[0_0_12px_rgba(124,109,250,0.2)] transition-all whitespace-nowrap"
                 >
-                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-3.5 h-3.5 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
                   Sync Google Calendar
-                  <span className="text-[10px] font-bold text-[#7c6dfa] bg-[#7c6dfa]/10 px-1.5 py-0.5 rounded-full">Premium</span>
                 </button>
               ) : (
                 <button
                   onClick={handleGCalSync}
                   disabled={syncing}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-white/10 text-[#8891b4] hover:border-[#7c6dfa]/40 hover:text-[#7c6dfa] transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#7c6dfa]/30 text-[#7c6dfa] bg-[#7c6dfa]/5 hover:bg-[#7c6dfa]/15 hover:border-[#7c6dfa]/60 hover:shadow-[0_0_12px_rgba(124,109,250,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
                   <svg className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     {syncing
@@ -813,7 +835,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                               <button
                                 key={n}
                                 onClick={() => handleToggleEnvoi(facture, n)}
-                                title={sent ? `Annuler N${n}` : `Marquer N${n} comme envoyé`}
+                                title={sent ? `Annuler la relance ${n}` : `Marquer la relance ${n} comme envoyée`}
                                 className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
                                   sent
                                     ? sentColors[n]
@@ -821,29 +843,43 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                                 }`}
                               >
                                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sent ? sentDots[n] : 'bg-white/20'}`} />
-                                N{n}
+                                {n === 1 ? '1re relance' : n === 2 ? '2e relance' : 'Mise en demeure'}
                                 {dateLabel && (
                                   <span className={`font-normal hidden sm:inline ${sent ? 'opacity-70' : 'text-[#454d6e]'}`}>· {dateLabel}</span>
                                 )}
                               </button>
                             )
                           })}
-                          <button
-                            onClick={() => handleToggleAutoSend(facture)}
-                            className={`ml-auto inline-flex items-center gap-2 text-xs font-semibold px-4 py-1.5 rounded-full transition-all ${
-                              autoActive
-                                ? 'bg-[#7c6dfa] text-white shadow-[0_0_20px_rgba(124,109,250,0.35)] hover:bg-[#6a5be0]'
-                                : 'border border-white/10 text-[#454d6e] hover:border-[#7c6dfa]/40 hover:text-[#7c6dfa]'
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${autoActive ? 'bg-white animate-pulse' : 'bg-white/20'}`} />
-                            Envoi auto
-                            {autoActive && nextSend && (
-                              <span className="font-normal opacity-80 hidden sm:inline">
-                                — {new Date(nextSend.send_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                              </span>
-                            )}
-                          </button>
+                          {autoActive ? (
+                            <button
+                              onClick={() => handleToggleAutoSend(facture)}
+                              className="ml-auto inline-flex items-center gap-2 text-xs font-semibold px-4 py-1.5 rounded-full bg-[#7c6dfa] text-white shadow-[0_0_20px_rgba(124,109,250,0.35)] hover:bg-[#6a5be0] transition-all"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-white animate-pulse" />
+                              Envoi auto
+                              {nextSend && (
+                                <span className="font-normal opacity-80 hidden sm:inline">
+                                  · prochain envoi prévu {new Date(nextSend.send_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleToggleAutoSend(facture)}
+                              className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full border border-[#7c6dfa]/30 text-[#7c6dfa] bg-[#7c6dfa]/5 hover:bg-[#7c6dfa]/15 hover:border-[#7c6dfa]/60 hover:shadow-[0_0_12px_rgba(124,109,250,0.2)] transition-all"
+                            >
+                              {plan === 'free' ? (
+                                <svg className="w-3 h-3 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M13 2L4.5 13.5H11L10 22L20.5 9.5H14L13 2Z" />
+                                </svg>
+                              )}
+                              Envoi auto
+                            </button>
+                          )}
                         </div>
                       )
                     })()}
@@ -1000,12 +1036,28 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
 
       {/* ── Toast ────────────────────────────────────────────────────────── */}
       {toast && (
-        <div className="fixed bottom-6 left-0 right-0 z-[80] flex justify-center px-4 pointer-events-none">
+        <div className="fixed top-5 right-5 z-[80] pointer-events-none">
           <div
-            style={{ animation: `${toastClosing ? 'toast-out' : 'toast-in'} 0.32s ease-out forwards` }}
-            className={`text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl pointer-events-auto ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-500'}`}
+            style={{
+              animation: `${toastClosing ? 'toast-out' : 'toast-in'} 0.32s ease-out forwards`,
+              boxShadow: toast.type === 'success'
+                ? '0 0 0 1px rgba(255,255,255,0.07), 0 4px 24px rgba(0,0,0,0.4), 0 0 20px rgba(16,185,129,0.15)'
+                : '0 0 0 1px rgba(255,255,255,0.07), 0 4px 24px rgba(0,0,0,0.4), 0 0 20px rgba(239,68,68,0.15)',
+            }}
+            className="flex items-center gap-3 bg-[#13151f] rounded-xl px-4 py-3 pointer-events-auto max-w-xs"
           >
-            {toast.message}
+            <span className={`flex items-center justify-center w-6 h-6 rounded-full shrink-0 ${toast.type === 'success' ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+              {toast.type === 'success' ? (
+                <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
+                </svg>
+              )}
+            </span>
+            <p className="text-[#f0f2ff] text-sm font-medium leading-snug">{toast.message}</p>
           </div>
         </div>
       )}

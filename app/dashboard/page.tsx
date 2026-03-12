@@ -55,9 +55,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       cookies: {
         getAll() { return cookieStore.getAll() },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          )
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            )
+          } catch {
+            // Ignoré dans Server Component — le middleware gère le refresh
+          }
         },
       },
     },

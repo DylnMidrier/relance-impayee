@@ -233,29 +233,16 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
                     <span className="text-xs text-gray-400 truncate">{tone}</span>
                   </div>
                   {/* Bouton IA — gradient border arc-en-ciel via style prop */}
-                  {plan === 'free' ? (
-                    <button
-                      onClick={() => setShowUpgrade(true)}
-                      className="shrink-0 flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-md text-gray-400 border border-gray-200"
-                      title="Fonctionnalité Premium"
-                    >
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                      IA
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => { setActiveIALevel(level); setUserPrompt('') }}
-                      style={rainbowBorder(false)}
-                      className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-md text-indigo-600 hover:text-indigo-800 transition-colors"
-                    >
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2l2.09 6.26L21 12l-6.91 3.74L12 22l-2.09-6.26L3 12l6.91-3.74z"/>
-                      </svg>
-                      IA
-                    </button>
-                  )}
+                  <button
+                    onClick={() => { setActiveIALevel(level); setUserPrompt('') }}
+                    style={rainbowBorder(false)}
+                    className="shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-md text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 2l2.09 6.26L21 12l-6.91 3.74L12 22l-2.09-6.26L3 12l6.91-3.74z"/>
+                    </svg>
+                    IA
+                  </button>
                 </div>
 
                 {/* Boutons d'action : Copier · Envoyer · Regénérer */}
@@ -335,14 +322,22 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
         </div>
       </div>
 
-      {/* Toast erreur IA — slide depuis le bas, slide vers le bas à la disparition */}
+      {/* Toast erreur IA */}
       {toast && (
-        <div className="fixed bottom-6 left-0 right-0 z-[70] flex justify-center px-4 pointer-events-none">
+        <div className="fixed top-5 right-5 z-[70] pointer-events-none">
           <div
-            style={{ animation: `${toastClosing ? 'toast-out' : 'toast-in'} 0.32s ease-out forwards` }}
-            className="bg-gray-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl text-center leading-relaxed max-w-sm pointer-events-auto"
+            style={{
+              animation: `${toastClosing ? 'toast-out' : 'toast-in'} 0.32s ease-out forwards`,
+              boxShadow: '0 0 0 1px rgba(255,255,255,0.07), 0 4px 24px rgba(0,0,0,0.4), 0 0 20px rgba(239,68,68,0.15)',
+            }}
+            className="flex items-center gap-3 bg-[#13151f] rounded-xl px-4 py-3 pointer-events-auto max-w-xs"
           >
-            {toast}
+            <span className="flex items-center justify-center w-6 h-6 rounded-full shrink-0 bg-red-500/15">
+              <svg className="w-3.5 h-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
+              </svg>
+            </span>
+            <p className="text-[#f0f2ff] text-sm font-medium leading-snug">{toast}</p>
           </div>
         </div>
       )}
@@ -382,13 +377,13 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
             </div>
 
             {/* Envoi automatique */}
-            <div className="border-t border-gray-100 pt-3">
-              <label className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${wantAutoSend ? 'bg-indigo-50 border-indigo-300' : 'border-gray-200 hover:border-gray-300'}`}>
+            <div className="border-t border-gray-100 pt-3 relative">
+              <label className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-all ${plan === 'free' ? 'cursor-default select-none' : 'cursor-pointer'} ${wantAutoSend ? 'bg-indigo-50 border-indigo-300' : 'border-gray-200 hover:border-gray-300'}`}>
                 <input
                   type="checkbox"
                   checked={wantAutoSend}
                   onChange={e => setWantAutoSend(e.target.checked)}
-                  disabled={!EMAIL_RE.test(form.emailClient)}
+                  disabled={!EMAIL_RE.test(form.emailClient) || plan === 'free'}
                   className="mt-0.5 rounded accent-indigo-600"
                 />
                 <div className="min-w-0">
@@ -400,6 +395,23 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
                   </p>
                 </div>
               </label>
+              {/* Overlay Premium */}
+              {plan === 'free' && (
+                <div className="absolute inset-0 rounded-xl overflow-hidden backdrop-blur-[2px] bg-white/60 flex items-center justify-between px-4 gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-gray-700 truncate">Envoi automatique — Premium</span>
+                  </div>
+                  <button
+                    onClick={() => { setShowCloseDialog(false); setShowUpgrade(true) }}
+                    className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                  >
+                    Débloquer
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2">
@@ -434,9 +446,37 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
           onClick={closeIAModal}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-4"
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 flex flex-col gap-4"
             onClick={e => e.stopPropagation()}
           >
+            {/* Overlay Premium — flouté avec cadenas si plan free */}
+            {plan === 'free' && (
+              <div className="absolute inset-0 z-10 rounded-2xl overflow-hidden flex flex-col items-center justify-center gap-4 backdrop-blur-[3px] bg-white/70">
+                <div className="flex flex-col items-center gap-3 text-center px-6">
+                  <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-extrabold text-gray-900 mb-1">Fonctionnalité Premium</p>
+                    <p className="text-xs text-gray-500 leading-relaxed">Personnalisez vos emails avec l'IA pour maximiser vos chances de recouvrement.</p>
+                  </div>
+                  <button
+                    onClick={() => { closeIAModal(); setShowUpgrade(true) }}
+                    className="text-sm font-semibold px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                  >
+                    Passer Premium →
+                  </button>
+                  <button
+                    onClick={closeIAModal}
+                    className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    Pas maintenant
+                  </button>
+                </div>
+              </div>
+            )}
             {/* En-tête */}
             <div className="flex items-start justify-between gap-3">
               <div>

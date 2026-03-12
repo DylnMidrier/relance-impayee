@@ -9,6 +9,7 @@ interface Props {
 
 const BENEFITS = [
   'Relances actives illimitées',
+  'Envoi automatique des relances par email',
   'Personnalisation des emails par IA',
   'Synchronisation Google Calendar',
 ]

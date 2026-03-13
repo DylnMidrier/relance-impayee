@@ -122,8 +122,7 @@ export async function GET(req: Request) {
     .from('scheduled_sends')
     .select(`
       id, facture_id, niveau,
-      factures ( user_id, email_client, nom_client, date_echeance ),
-      relances ( body_override, subject_override )
+      factures ( user_id, email_client, nom_client, date_echeance )
     `)
     .lte('send_at', new Date().toISOString())
     .is('sent_at', null)
@@ -147,7 +146,14 @@ export async function GET(req: Request) {
 
       const token = profile?.gmail_access_token
       const to = facture?.email_client
-      const relance = (send.relances ?? []).find((r: any) => r.niveau === send.niveau)
+
+      // Récupère la relance séparément (pas de FK directe entre scheduled_sends et relances)
+      const { data: relance } = await supabase
+        .from('relances')
+        .select('body_override, subject_override')
+        .eq('facture_id', send.facture_id)
+        .eq('niveau', send.niveau)
+        .single()
 
       if (!token || !to) {
         await supabase

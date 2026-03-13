@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
@@ -23,15 +24,19 @@ export async function GET(request: Request) {
       },
     )
     const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
-    console.log('[auth/callback] provider_token:', !!session?.provider_token, '| provider_refresh_token:', !!session?.provider_refresh_token)
     const user = session?.user
     if (user) {
+      // Service role pour contourner le RLS sur profiles
+      const admin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      )
+
       // Crée le profil si inexistant (sans écraser le plan existant)
-      const { error: insertError } = await supabase.from('profiles').upsert(
+      await admin.from('profiles').upsert(
         { id: user.id, plan: 'free' },
         { onConflict: 'id', ignoreDuplicates: true }
       )
-      if (insertError) console.error('[auth/callback] insert error:', insertError)
 
       // Met à jour les tokens Gmail séparément
       const tokenUpdate: Record<string, string> = {}
@@ -39,9 +44,7 @@ export async function GET(request: Request) {
       if (session.provider_refresh_token) tokenUpdate.gmail_refresh_token = session.provider_refresh_token
 
       if (Object.keys(tokenUpdate).length > 0) {
-        const { error: updateError } = await supabase.from('profiles').update(tokenUpdate).eq('id', user.id)
-        if (updateError) console.error('[auth/callback] token update error:', updateError)
-        else console.log('[auth/callback] tokens saved ok, keys:', Object.keys(tokenUpdate).join(', '))
+        await admin.from('profiles').update(tokenUpdate).eq('id', user.id)
       }
     }
   }

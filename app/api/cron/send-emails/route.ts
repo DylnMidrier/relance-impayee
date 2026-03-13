@@ -232,7 +232,7 @@ export async function GET(req: Request) {
         const { data: { user: authUser } } = await supabase.auth.admin.getUserById(facture.user_id)
         if (authUser?.email) {
           const niveauLabel = NIVEAU_LABEL[send.niveau] ?? `Relance N${send.niveau}`
-          const prenom = profile?.prenom ?? ''
+          const prenom = ''
           await resend.emails.send({
             from: 'recouvr.io <notifications@recouvr.io>',
             to: authUser.email,

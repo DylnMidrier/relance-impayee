@@ -24,7 +24,6 @@ export async function GET(request: Request) {
       },
     )
     const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
-    console.log('[auth/callback] user:', session?.user?.id, '| access:', !!session?.provider_token, '| refresh:', !!session?.provider_refresh_token)
     const user = session?.user
     if (user) {
       // Service role pour contourner le RLS sur profiles
@@ -45,8 +44,7 @@ export async function GET(request: Request) {
       if (session.provider_refresh_token) tokenUpdate.gmail_refresh_token = session.provider_refresh_token
 
       if (Object.keys(tokenUpdate).length > 0) {
-        const { error: updErr, count } = await admin.from('profiles').update(tokenUpdate).eq('id', user.id).select()
-        console.log('[auth/callback] token update error:', updErr, '| rows affected:', count)
+        await admin.from('profiles').update(tokenUpdate).eq('id', user.id)
       }
     }
   }

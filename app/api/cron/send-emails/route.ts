@@ -139,17 +139,13 @@ export async function GET(req: Request) {
       const facture = send.factures
 
       // Récupère le profil séparément (pas de FK directe entre factures et profiles)
-      const { data: profile, error: profileErr } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('gmail_access_token, gmail_refresh_token')
         .eq('id', facture?.user_id)
         .single()
-      if (profileErr) console.log('[cron] profile error:', JSON.stringify(profileErr))
-
       // Rafraîchit le token Gmail si un refresh_token est disponible
       let token = profile?.gmail_access_token
-      console.log(`[cron] profile raw:`, JSON.stringify(profile))
-      console.log(`[cron] send#${send.id} user=${facture?.user_id} has_access=${!!profile?.gmail_access_token} has_refresh=${!!profile?.gmail_refresh_token} to=${facture?.email_client}`)
       if (profile?.gmail_refresh_token && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -162,15 +158,12 @@ export async function GET(req: Request) {
           }),
         })
         const refreshData = await refreshRes.json()
-        console.log(`[cron] refresh result: ok=${!!refreshData.access_token} error=${refreshData.error ?? 'none'}`)
         if (refreshData.access_token) {
           token = refreshData.access_token
           await supabase.from('profiles')
             .update({ gmail_access_token: token })
             .eq('id', facture.user_id)
         }
-      } else {
-        console.log(`[cron] skipping refresh: has_refresh=${!!profile?.gmail_refresh_token} GOOGLE_CLIENT_ID=${!!process.env.GOOGLE_CLIENT_ID} GOOGLE_CLIENT_SECRET=${!!process.env.GOOGLE_CLIENT_SECRET}`)
       }
       const to = facture?.email_client
 

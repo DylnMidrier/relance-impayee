@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { NextResponse } from 'next/server'
+import { genEmailLevel } from '@/app/lib/emails'
 
 // Route appelée par Vercel Cron une fois par jour à 9h30 Paris
 // Sécurisée par CRON_SECRET en Authorization header
@@ -122,7 +123,7 @@ export async function GET(req: Request) {
     .from('scheduled_sends')
     .select(`
       id, facture_id, niveau,
-      factures ( user_id, email_client, nom_client, date_echeance )
+      factures ( user_id, email_client, nom_client, date_echeance, montant, numero_facture )
     `)
     .lte('send_at', new Date().toISOString())
     .is('sent_at', null)
@@ -190,8 +191,16 @@ export async function GET(req: Request) {
         return
       }
 
-      const subject = relance?.subject_override ?? `Relance facture — ${facture.nom_client}`
-      const body = relance?.body_override ?? ''
+      const defaultEmail = genEmailLevel(
+        send.niveau as 1 | 2 | 3,
+        '',
+        facture.nom_client ?? '',
+        facture.numero_facture ?? '',
+        String(facture.montant ?? ''),
+        facture.date_echeance ?? '',
+      )
+      const subject = relance?.subject_override ?? defaultEmail.subject
+      const body    = relance?.body_override    ?? defaultEmail.body
       const raw = buildRfc2822(to, subject, body)
 
       const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {

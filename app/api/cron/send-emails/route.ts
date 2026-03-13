@@ -146,6 +146,7 @@ export async function GET(req: Request) {
 
       // Rafraîchit le token Gmail si un refresh_token est disponible
       let token = profile?.gmail_access_token
+      console.log(`[cron] send#${send.id} user=${facture?.user_id} has_access=${!!profile?.gmail_access_token} has_refresh=${!!profile?.gmail_refresh_token} to=${facture?.email_client}`)
       if (profile?.gmail_refresh_token && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -158,13 +159,15 @@ export async function GET(req: Request) {
           }),
         })
         const refreshData = await refreshRes.json()
+        console.log(`[cron] refresh result: ok=${!!refreshData.access_token} error=${refreshData.error ?? 'none'}`)
         if (refreshData.access_token) {
           token = refreshData.access_token
-          // Sauvegarde le nouveau access token
           await supabase.from('profiles')
             .update({ gmail_access_token: token })
             .eq('id', facture.user_id)
         }
+      } else {
+        console.log(`[cron] skipping refresh: has_refresh=${!!profile?.gmail_refresh_token} GOOGLE_CLIENT_ID=${!!process.env.GOOGLE_CLIENT_ID} GOOGLE_CLIENT_SECRET=${!!process.env.GOOGLE_CLIENT_SECRET}`)
       }
       const to = facture?.email_client
 
@@ -177,6 +180,7 @@ export async function GET(req: Request) {
         .single()
 
       if (!token || !to) {
+        console.log(`[cron] aborting send#${send.id}: token=${!!token} to=${!!to}`)
         await supabase
           .from('scheduled_sends')
           .update({ error: 'Token ou email manquant', sent_at: new Date().toISOString() })

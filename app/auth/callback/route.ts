@@ -23,6 +23,7 @@ export async function GET(request: Request) {
       },
     )
     const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
+    console.log('[auth/callback] provider_token:', !!session?.provider_token, '| provider_refresh_token:', !!session?.provider_refresh_token)
     const user = session?.user
     if (user) {
       await supabase.from('profiles').upsert(

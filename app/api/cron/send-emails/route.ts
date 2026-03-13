@@ -140,7 +140,7 @@ export async function GET(req: Request) {
       // Récupère le profil séparément (pas de FK directe entre factures et profiles)
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
-        .select('gmail_access_token, gmail_refresh_token, prenom')
+        .select('gmail_access_token, gmail_refresh_token')
         .eq('id', facture?.user_id)
         .single()
       if (profileErr) console.log('[cron] profile error:', JSON.stringify(profileErr))

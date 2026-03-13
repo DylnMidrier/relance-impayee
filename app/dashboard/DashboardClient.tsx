@@ -137,6 +137,20 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
     return { unsyncedCount: unsynced.length, syncableTotal: syncable.length }
   }, [factures])
 
+  // ── Sauvegarde les tokens Gmail au chargement (provider_refresh_token dispo juste après OAuth) ──
+  useEffect(() => {
+    async function saveTokens() {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.provider_refresh_token) return
+      await supabase.from('profiles').update({
+        gmail_access_token:  session.provider_token ?? undefined,
+        gmail_refresh_token: session.provider_refresh_token,
+      }).eq('id', userId)
+    }
+    saveTokens()
+  }, [userId])
+
   // ── Verify GCal events on mount ───────────────────────────────────────────
   useEffect(() => {
     const facturesWithEvents = initial.filter(f => f.gcal_event_ids?.length)

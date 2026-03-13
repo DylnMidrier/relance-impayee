@@ -146,6 +146,7 @@ export async function GET(req: Request) {
 
       // Rafraîchit le token Gmail si un refresh_token est disponible
       let token = profile?.gmail_access_token
+      console.log(`[cron] profile raw:`, JSON.stringify(profile))
       console.log(`[cron] send#${send.id} user=${facture?.user_id} has_access=${!!profile?.gmail_access_token} has_refresh=${!!profile?.gmail_refresh_token} to=${facture?.email_client}`)
       if (profile?.gmail_refresh_token && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         const refreshRes = await fetch('https://oauth2.googleapis.com/token', {

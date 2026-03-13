@@ -138,11 +138,12 @@ export async function GET(req: Request) {
       const facture = send.factures
 
       // Récupère le profil séparément (pas de FK directe entre factures et profiles)
-      const { data: profile } = await supabase
+      const { data: profile, error: profileErr } = await supabase
         .from('profiles')
         .select('gmail_access_token, gmail_refresh_token, prenom')
         .eq('id', facture?.user_id)
         .single()
+      if (profileErr) console.log('[cron] profile error:', JSON.stringify(profileErr))
 
       // Rafraîchit le token Gmail si un refresh_token est disponible
       let token = profile?.gmail_access_token

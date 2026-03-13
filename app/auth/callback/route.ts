@@ -22,9 +22,18 @@ export async function GET(request: Request) {
         },
       },
     )
-    const { data: { user } } = await supabase.auth.exchangeCodeForSession(code)
+    const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
+    const user = session?.user
     if (user) {
-      await supabase.from('profiles').upsert({ id: user.id, plan: 'free' }, { onConflict: 'id', ignoreDuplicates: true })
+      await supabase.from('profiles').upsert(
+        {
+          id: user.id,
+          plan: 'free',
+          ...(session.provider_token         && { gmail_access_token:  session.provider_token }),
+          ...(session.provider_refresh_token && { gmail_refresh_token: session.provider_refresh_token }),
+        },
+        { onConflict: 'id', ignoreDuplicates: false }
+      )
     }
   }
 

@@ -140,11 +140,32 @@ export async function GET(req: Request) {
       // Récupère le profil séparément (pas de FK directe entre factures et profiles)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('gmail_access_token, prenom')
+        .select('gmail_access_token, gmail_refresh_token, prenom')
         .eq('id', facture?.user_id)
         .single()
 
-      const token = profile?.gmail_access_token
+      // Rafraîchit le token Gmail si un refresh_token est disponible
+      let token = profile?.gmail_access_token
+      if (profile?.gmail_refresh_token && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+        const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id:     process.env.GOOGLE_CLIENT_ID,
+            client_secret: process.env.GOOGLE_CLIENT_SECRET,
+            refresh_token: profile.gmail_refresh_token,
+            grant_type:    'refresh_token',
+          }),
+        })
+        const refreshData = await refreshRes.json()
+        if (refreshData.access_token) {
+          token = refreshData.access_token
+          // Sauvegarde le nouveau access token
+          await supabase.from('profiles')
+            .update({ gmail_access_token: token })
+            .eq('id', facture.user_id)
+        }
+      }
       const to = facture?.email_client
 
       // Récupère la relance séparément (pas de FK directe entre scheduled_sends et relances)

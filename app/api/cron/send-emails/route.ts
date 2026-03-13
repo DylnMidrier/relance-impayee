@@ -122,10 +122,7 @@ export async function GET(req: Request) {
     .from('scheduled_sends')
     .select(`
       id, facture_id, niveau,
-      factures (
-        user_id, email_client, nom_client, date_echeance,
-        profiles ( gmail_access_token, prenom )
-      ),
+      factures ( user_id, email_client, nom_client, date_echeance ),
       relances ( body_override, subject_override )
     `)
     .lte('send_at', new Date().toISOString())
@@ -140,7 +137,15 @@ export async function GET(req: Request) {
   const results = await Promise.allSettled(
     (pending ?? []).map(async (send: any) => {
       const facture = send.factures
-      const token = facture?.profiles?.gmail_access_token
+
+      // Récupère le profil séparément (pas de FK directe entre factures et profiles)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('gmail_access_token, prenom')
+        .eq('id', facture?.user_id)
+        .single()
+
+      const token = profile?.gmail_access_token
       const to = facture?.email_client
       const relance = (send.relances ?? []).find((r: any) => r.niveau === send.niveau)
 
@@ -194,7 +199,7 @@ export async function GET(req: Request) {
         const { data: { user: authUser } } = await supabase.auth.admin.getUserById(facture.user_id)
         if (authUser?.email) {
           const niveauLabel = NIVEAU_LABEL[send.niveau] ?? `Relance N${send.niveau}`
-          const prenom = facture.profiles?.prenom ?? ''
+          const prenom = profile?.prenom ?? ''
           await resend.emails.send({
             from: 'recouvr.io <notifications@recouvr.io>',
             to: authUser.email,

@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       },
     )
     const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
+    console.log('[auth/callback] user:', session?.user?.id, '| access:', !!session?.provider_token, '| refresh:', !!session?.provider_refresh_token)
     const user = session?.user
     if (user) {
       // Service role pour contourner le RLS sur profiles

@@ -492,13 +492,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       return
     }
 
-    const relancesInsert = ([1, 2, 3] as const).map(n => ({
-      facture_id: factureData.id,
-      niveau: n,
-      statut: 'planifiée',
-      date_planifiee: generateForm.echeance ? addDays(generateForm.echeance, LEVEL_OFFSETS[n]) : null,
-    }))
-    const { data: relancesData } = await supabase.from('relances').insert(relancesInsert).select()
+    const generatedEmails = genEmails(generateForm.prenom, generateForm.client, generateForm.facture, generateForm.montant, generateForm.echeance)
 
     setFactures(prev => [{
       id: factureData.id,
@@ -510,10 +504,10 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       statut: 'en_attente',
       created_at: new Date().toISOString(),
       gcal_event_ids: null,
-      relances: (relancesData ?? []) as Relance[],
+      relances: [] as Relance[],
     } as Facture, ...prev])
 
-    setEmails(genEmails(generateForm.prenom, generateForm.client, generateForm.facture, generateForm.montant, generateForm.echeance))
+    setEmails(generatedEmails)
     setGenerateFactureId(factureData.id)
     setGenerateLoading(false)
     setShowGenerateModal(false)

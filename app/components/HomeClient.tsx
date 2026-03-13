@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { FormState, EmailTemplate, genEmails, genEmailLevel } from '../lib/emails'
 import { createClient } from '../lib/supabase'
 import FormSection from './FormSection'
@@ -11,6 +12,7 @@ import type { Plan } from '../dashboard/page'
 const PENDING_FORM_KEY = 'recouvr_pending_form'
 
 export default function HomeClient() {
+  const router = useRouter()
   const [showModal, setShowModal] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [form, setForm] = useState<FormState>({ prenom: '', client: '', emailClient: '', facture: '', montant: '', echeance: '' })
@@ -58,7 +60,8 @@ export default function HomeClient() {
       }
     }
 
-    setEmails(genEmails(pendingForm.prenom, pendingForm.client, pendingForm.facture, pendingForm.montant, pendingForm.echeance))
+    const generatedEmails = genEmails(pendingForm.prenom, pendingForm.client, pendingForm.facture, pendingForm.montant, pendingForm.echeance)
+    setEmails(generatedEmails)
     setRelanceId(null)
     setShowModal(true)
 
@@ -82,19 +85,6 @@ export default function HomeClient() {
 
     const factureId = data.id
     setRelanceId(factureId)
-
-    const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
-    const relancesData = [1, 2, 3].map(niveau => {
-      let date_planifiee: string | null = null
-      if (pendingForm.echeance) {
-        const d = new Date(pendingForm.echeance)
-        d.setDate(d.getDate() + LEVEL_OFFSETS[niveau])
-        date_planifiee = d.toISOString().split('T')[0]
-      }
-      return { facture_id: factureId, niveau, statut: 'planifiée', date_planifiee }
-    })
-    await supabase.from('relances').insert(relancesData)
-    showToast('Relances enregistrées dans votre historique ✓', 'success')
   }
 
   async function signInWithGoogle() {
@@ -172,20 +162,6 @@ export default function HomeClient() {
 
     const factureId = data.id
     setRelanceId(factureId)
-
-    const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
-    const relancesData = [1, 2, 3].map(niveau => {
-      let date_planifiee: string | null = null
-      if (form.echeance) {
-        const d = new Date(form.echeance)
-        d.setDate(d.getDate() + LEVEL_OFFSETS[niveau])
-        date_planifiee = d.toISOString().split('T')[0]
-      }
-      return { facture_id: factureId, niveau, statut: 'planifiée', date_planifiee }
-    })
-    await supabase.from('relances').insert(relancesData)
-
-    showToast('Relances enregistrées dans votre historique ✓', 'success')
   }
 
   function handleRegenerateLevel(level: number) {
@@ -263,6 +239,10 @@ export default function HomeClient() {
         relanceId={relanceId}
         plan={userPlan}
         onActivateAutoSend={handleActivateAutoSend}
+        onSaved={() => {
+          showToast('Relances enregistrées dans votre historique ✓', 'success')
+          setTimeout(() => router.push('/dashboard'), 2000)
+        }}
       />
       <UpgradeModal
         show={showUpgrade}

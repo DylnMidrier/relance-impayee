@@ -16,6 +16,7 @@ interface Props {
   plan: Plan
   onSent?: (relanceId: string, levels: number[]) => void
   onActivateAutoSend?: (alreadySentLevels: number[]) => Promise<void>
+  onSaved?: () => void
 }
 
 function buildMailtoHref(to: string, subject: string, body: string) {
@@ -32,10 +33,11 @@ const rainbowBorder = (active: boolean): React.CSSProperties => ({
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId, plan, onSent, onActivateAutoSend }: Props) {
+export default function ResultsModal({ show, onClose, emails, form, onRegenerateLevel, relanceId, plan, onSent, onActivateAutoSend, onSaved }: Props) {
   const emailValid = EMAIL_RE.test(form.emailClient)
   const [copied, setCopied] = useState<number | null>(null)
   const [editedBodies, setEditedBodies] = useState<Record<number, string>>({})
+  const [editedSubjects, setEditedSubjects] = useState<Record<number, string>>({})
   // Incrémenté à chaque regen d'un niveau — le changement de key remonte le nœud et relance l'animation CSS
   const [regenKeys, setRegenKeys] = useState<Record<number, number>>({ 1: 0, 2: 0, 3: 0 })
 
@@ -48,10 +50,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
   const [toastClosing, setToastClosing] = useState(false)
   const [showUpgrade, setShowUpgrade] = useState(false)
 
-  // Dialog de fermeture — demande si des emails ont été envoyés manuellement
-  const [showCloseDialog, setShowCloseDialog] = useState(false)
-  const [sentLevels, setSentLevels] = useState<number[]>([])    // envoyés via bouton "Envoyer"
-  const [manualSentLevels, setManualSentLevels] = useState<number[]>([]) // sélectionnés dans la dialog
+  const [sentLevels, setSentLevels] = useState<number[]>([])
   const [wantAutoSend, setWantAutoSend] = useState(false)
 
   function showToast(message: string) {
@@ -76,14 +75,17 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
     // (la mutation du ref dans le setState updater causait un bug React 18 concurrent :
     //  l'updater peut être rejoué, et au 2e appel le ref est déjà à jour → faux négatif)
     const changed: Record<number, string> = {}
+    const changedSubjects: Record<number, string> = {}
     emails.forEach(e => {
       if (prevBodiesRef.current[e.level] !== e.body) {
         changed[e.level] = e.body
+        changedSubjects[e.level] = e.subject
       }
     })
     prevBodiesRef.current = Object.fromEntries(emails.map(e => [e.level, e.body]))
     if (Object.keys(changed).length > 0) {
       setEditedBodies(prev => ({ ...prev, ...changed }))
+      setEditedSubjects(prev => ({ ...prev, ...changedSubjects }))
     }
   }, [emails])
 
@@ -91,47 +93,39 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
     setSentLevels(prev => prev.includes(level) ? prev : [...prev, level])
   }
 
-  function handleClose() {
-    // Si connecté, ouvre la dialog pour capturer les envois manuels avant de fermer
-    if (relanceId) {
-      setManualSentLevels([...sentLevels])
-      setShowCloseDialog(true)
-      return
-    }
-    onClose()
-  }
-
-  function toggleManualLevel(level: number) {
-    setManualSentLevels(prev =>
-      prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level]
-    )
-  }
-
-  async function handleConfirmClose(withSave: boolean) {
-    setShowCloseDialog(false)
+  async function handleSaveAndClose() {
     if (relanceId) {
       const supabase = createClient()
-      if (withSave && manualSentLevels.length > 0) {
-        await Promise.all(
-          manualSentLevels.map(niveau =>
-            supabase
-              .from('relances')
-              .update({ statut: 'envoyée', date_envoi: new Date().toISOString().split('T')[0] })
-              .eq('facture_id', relanceId)
-              .eq('niveau', niveau)
-          )
-        )
-        onSent?.(relanceId, manualSentLevels)
-      }
-      if (wantAutoSend) {
-        await onActivateAutoSend?.(withSave ? manualSentLevels : [])
-      }
+      const today = new Date().toISOString().split('T')[0]
+      const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
+      const relancesData = emails.map(({ level }) => {
+        let date_planifiee: string | null = null
+        if (form.echeance) {
+          const d = new Date(form.echeance)
+          d.setDate(d.getDate() + LEVEL_OFFSETS[level])
+          date_planifiee = d.toISOString().split('T')[0]
+        }
+        const sent = sentLevels.includes(level)
+        return {
+          facture_id: relanceId,
+          niveau: level,
+          statut: sent ? 'envoyée' : 'planifiée',
+          date_planifiee,
+          date_envoi: sent ? today : null,
+          subject_override: editedSubjects[level] ?? null,
+          body_override:    editedBodies[level]   ?? null,
+        }
+      })
+      await supabase.from('relances').insert(relancesData)
+      if (sentLevels.length > 0) onSent?.(relanceId, sentLevels)
+      if (wantAutoSend) await onActivateAutoSend?.(sentLevels)
     }
-    onClose()
+    onSaved ? onSaved() : onClose()
   }
 
   function handleCopy(level: number, subject: string) {
-    navigator.clipboard.writeText(`Objet : ${subject}\n\n${editedBodies[level] ?? ''}`)
+    const subj = editedSubjects[level] ?? subject
+    navigator.clipboard.writeText(`Objet : ${subj}\n\n${editedBodies[level] ?? ''}`)
     setCopied(level)
     setTimeout(() => setCopied(null), 2000)
     setSentLevels(prev => prev.includes(level) ? prev : [...prev, level])
@@ -196,7 +190,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
     <>
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 md:p-4"
-        onClick={handleClose}
+        onClick={onClose}
       >
         <div
           className="bg-white w-full h-full md:rounded-2xl md:shadow-2xl md:max-w-7xl md:h-[80vh] flex flex-col overflow-hidden"
@@ -210,7 +204,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
               </p>
             </div>
             <button
-              onClick={handleClose}
+              onClick={onClose}
               className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors text-sm font-bold shrink-0"
               aria-label="Fermer"
             >
@@ -220,6 +214,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
 
           <div className="flex-1 overflow-y-auto px-7 py-5 grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
             {emails.map(({ level, label, tone, dot, tag, border, subject }) => (
+
               <div
                 key={level}
                 style={{ animationDelay: `${(level - 1) * 130}ms` }}
@@ -260,7 +255,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
                   {/* mailto: → ouvre l'app mail par défaut sur tous les OS/mobiles */}
                   {emailValid ? (
                     <a
-                      href={buildMailtoHref(form.emailClient, subject, editedBodies[level] ?? '')}
+                      href={buildMailtoHref(form.emailClient, editedSubjects[level] ?? subject, editedBodies[level] ?? '')}
                       onClick={() => handleEnvoyer(level)}
                       className="flex-1 text-xs font-semibold px-2 py-1.5 rounded-md border border-gray-200 bg-white text-gray-700 hover:border-indigo-500 hover:text-indigo-600 transition-all text-center no-underline"
                     >
@@ -288,8 +283,14 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
 
                 {/* key sur regenKeys[level] → remonte le nœud à chaque regen = relance l'animation */}
                 <div key={regenKeys[level]} className="[animation:regen_0.3s_ease-out] flex flex-col flex-1">
-                  <div className="text-sm font-semibold text-gray-900 mb-3 pb-3 border-b border-dashed border-gray-200">
-                    <span className="font-normal text-gray-400">Objet : </span>{subject}
+                  <div className="flex items-baseline gap-1.5 mb-3 pb-3 border-b border-dashed border-gray-200">
+                    <span className="text-sm font-normal text-gray-400 shrink-0">Objet :</span>
+                    <input
+                      value={editedSubjects[level] ?? subject}
+                      onChange={e => setEditedSubjects(prev => ({ ...prev, [level]: e.target.value }))}
+                      className="flex-1 text-sm font-semibold text-gray-900 bg-transparent outline-none border-none p-0 min-w-0"
+                      spellCheck={false}
+                    />
                   </div>
 
                   {/* Shimmer IA via style prop pendant la génération */}
@@ -319,6 +320,54 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
               </div>
             ))}
           </div>
+
+          {/* Footer — Save & auto-send */}
+          {relanceId && (
+            <div className="shrink-0 border-t border-gray-100 px-7 py-4 flex items-center justify-between gap-4">
+              {/* Toggle envoi automatique */}
+              <div className="relative flex-1 min-w-0">
+                <label className={`flex items-center gap-3 ${plan === 'free' ? 'cursor-default select-none' : 'cursor-pointer'}`}>
+                  <div className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${wantAutoSend && plan !== 'free' ? 'bg-indigo-600' : 'bg-gray-200'}`}>
+                    <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${wantAutoSend && plan !== 'free' ? 'translate-x-4' : ''}`} />
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={wantAutoSend}
+                      onChange={e => setWantAutoSend(e.target.checked)}
+                      disabled={!emailValid || plan === 'free'}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-800 truncate">Envoi automatique</p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {!emailValid ? 'Email client requis' : 'Les prochains niveaux partent aux bonnes dates'}
+                    </p>
+                  </div>
+                </label>
+                {plan === 'free' && (
+                  <div className="absolute inset-0 rounded-xl overflow-hidden backdrop-blur-[2px] bg-white/70 flex items-center gap-2 px-1">
+                    <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-gray-600 truncate">Premium</span>
+                    <button
+                      onClick={() => setShowUpgrade(true)}
+                      className="ml-auto shrink-0 text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                    >
+                      Débloquer
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleSaveAndClose}
+                className="shrink-0 text-sm font-semibold px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+              >
+                Sauvegarder →
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -342,96 +391,6 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
         </div>
       )}
 
-      {/* Dialog fermeture — demande si des emails ont été envoyés manuellement */}
-      {showCloseDialog && (
-        <div className="fixed inset-0 z-[65] flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
-            <div>
-              <p className="text-sm font-extrabold text-gray-900 mb-1">Avez-vous envoyé des emails via votre messagerie ?</p>
-              <p className="text-xs text-gray-400 leading-relaxed">Si vous avez copié-collé certains emails manuellement, cochez-les pour les enregistrer dans votre historique.</p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              {emails.map(({ level, label, dot }) => {
-                const checked = manualSentLevels.includes(level)
-                return (
-                  <label
-                    key={level}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all cursor-pointer ${
-                      checked
-                        ? 'bg-indigo-50 border-indigo-300'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleManualLevel(level)}
-                      className="rounded accent-indigo-600"
-                    />
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
-                    <span className="text-sm font-medium text-gray-700 flex-1">{label}</span>
-                  </label>
-                )
-              })}
-            </div>
-
-            {/* Envoi automatique */}
-            <div className="border-t border-gray-100 pt-3 relative">
-              <label className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border transition-all ${plan === 'free' ? 'cursor-default select-none' : 'cursor-pointer'} ${wantAutoSend ? 'bg-indigo-50 border-indigo-300' : 'border-gray-200 hover:border-gray-300'}`}>
-                <input
-                  type="checkbox"
-                  checked={wantAutoSend}
-                  onChange={e => setWantAutoSend(e.target.checked)}
-                  disabled={!EMAIL_RE.test(form.emailClient) || plan === 'free'}
-                  className="mt-0.5 rounded accent-indigo-600"
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-800">Activer l'envoi automatique</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {EMAIL_RE.test(form.emailClient)
-                      ? 'Les prochains niveaux seront envoyés automatiquement aux bonnes dates.'
-                      : 'Ajoutez un email client valide pour activer cette option.'}
-                  </p>
-                </div>
-              </label>
-              {/* Overlay Premium */}
-              {plan === 'free' && (
-                <div className="absolute inset-0 rounded-xl overflow-hidden backdrop-blur-[2px] bg-white/60 flex items-center justify-between px-4 gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <svg className="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                    <span className="text-xs font-semibold text-gray-700 truncate">Envoi automatique — Premium</span>
-                  </div>
-                  <button
-                    onClick={() => { setShowCloseDialog(false); setShowUpgrade(true) }}
-                    className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
-                  >
-                    Débloquer
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleConfirmClose(false)}
-                className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                Ignorer
-              </button>
-              <button
-                onClick={() => handleConfirmClose(true)}
-                disabled={manualSentLevels.length === 0 && !wantAutoSend}
-                className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                Enregistrer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <UpgradeModal
         show={showUpgrade}

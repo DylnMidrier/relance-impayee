@@ -45,7 +45,8 @@ export async function GET(request: Request) {
       if (session.provider_refresh_token) tokenUpdate.gmail_refresh_token = session.provider_refresh_token
 
       if (Object.keys(tokenUpdate).length > 0) {
-        await admin.from('profiles').update(tokenUpdate).eq('id', user.id)
+        const { error: updErr, count } = await admin.from('profiles').update(tokenUpdate).eq('id', user.id).select()
+        console.log('[auth/callback] token update error:', updErr, '| rows affected:', count)
       }
     }
   }

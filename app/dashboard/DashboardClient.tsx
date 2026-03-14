@@ -297,7 +297,16 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       setGcalMsg({ text: 'Reconnectez-vous pour autoriser l\'accès Google Calendar.' })
       setSyncing(false); return
     }
-    const toSync = factures.filter(f => f.date_echeance && f.statut !== 'payé')
+    const toSync = factures
+      .filter(f => f.date_echeance && f.statut !== 'payé')
+      .map(f => ({
+        id: f.id,
+        nom_client: f.nom_client,
+        date_echeance: f.date_echeance,
+        montant: f.montant,
+        gcal_event_ids: f.gcal_event_ids,
+        relances: (f.relances ?? []).map(r => ({ niveau: r.niveau, date_planifiee: r.date_planifiee })),
+      }))
     const res = await fetch('/api/google-calendar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -553,7 +562,17 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       statut: 'en_attente',
       created_at: new Date().toISOString(),
       gcal_event_ids: null,
-      relances: [] as Relance[],
+      relances: ([1, 2, 3] as const).map(niveau => ({
+        id: '',
+        facture_id: factureData.id,
+        niveau,
+        statut: 'planifiée' as const,
+        date_planifiee: null,
+        date_envoi: null,
+        body_override: null,
+        subject_override: null,
+        created_at: new Date().toISOString(),
+      })),
     } as Facture, ...prev])
 
     setEmails(generatedEmails)

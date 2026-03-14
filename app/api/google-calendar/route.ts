@@ -49,10 +49,15 @@ export async function POST(req: Request) {
   const GCalPostSchema = z.object({
     token:    z.string().min(1),
     factures: z.array(z.object({
-      id:            z.string(),
-      nom_client:    z.string(),
-      date_echeance: z.string().nullable(),
-      montant:       z.number().nullable().optional(),
+      id:             z.string(),
+      nom_client:     z.string(),
+      date_echeance:  z.string().nullable(),
+      montant:        z.number().nullable().optional(),
+      gcal_event_ids: z.array(z.string()).nullable().optional(),
+      relances:       z.array(z.object({
+        niveau:          z.number(),
+        date_planifiee:  z.string().nullable(),
+      })).optional(),
     })),
   })
 
@@ -66,10 +71,21 @@ export async function POST(req: Request) {
 
   for (const facture of factures) {
     if (!facture.date_echeance) continue
+
+    // Supprime les events existants avant de recréer (évite les doublons/orphelins)
+    const existingIds = facture.gcal_event_ids ?? []
+    await Promise.allSettled(
+      existingIds.map(id =>
+        fetch(`${GCAL}/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+      )
+    )
+
     const ids: string[] = []
 
     for (const [offset, niveau] of [[7, 1], [15, 2], [30, 3]] as [number, number][]) {
-      const date = addDays(facture.date_echeance, offset)
+      const relance = facture.relances?.find(r => r.niveau === niveau)
+      const date = relance?.date_planifiee ?? addDays(facture.date_echeance, offset)
+
       const res = await fetch(GCAL, {
         method: 'POST',
         headers: {

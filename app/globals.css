@@ -2,6 +2,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Thème sombre (défaut) ──────────────────────────────────────────────── */
+:root {
+  color-scheme: dark;
+  --bg:   #0c0e14;
+  --card: #13151f;
+  --t1:   #f0f2ff;
+  --t2:   #8891b4;
+  --t3:   #454d6e;
+  --bd:   rgba(255,255,255,0.07);
+  --bd2:  rgba(255,255,255,0.08);
+  --bd3:  rgba(255,255,255,0.06);
+  --bd4:  rgba(255,255,255,0.05);
+  --s1:   rgba(255,255,255,0.03);
+  --h1:   rgba(255,255,255,0.05);
+}
+
+/* ── Thème clair ────────────────────────────────────────────────────────── */
+html:not(.dark) {
+  color-scheme: light;
+  --bg:   #f0f2ff;
+  --card: #ffffff;
+  --t1:   #0c0e14;
+  --t2:   #4a5080;
+  --t3:   #8891b4;
+  --bd:   rgba(0,0,0,0.08);
+  --bd2:  rgba(0,0,0,0.1);
+  --bd3:  rgba(0,0,0,0.06);
+  --bd4:  rgba(0,0,0,0.05);
+  --s1:   rgba(0,0,0,0.04);
+  --h1:   rgba(0,0,0,0.05);
+}
+
+body {
+  background-color: var(--bg);
+}
+
 html {
   scroll-behavior: smooth;
 }

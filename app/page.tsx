@@ -1,17 +1,22 @@
+import type { Metadata } from 'next'
 import Nav from './components/Nav'
 import Hero from './components/Hero'
 import ProblemSection from './components/ProblemSection'
 import SolutionSection from './components/SolutionSection'
+import TimelineSection from './components/TimelineSection'
 import ShowcaseSection from './components/ShowcaseSection'
 import Footer from './components/Footer'
-import HomeClient from './components/HomeClient'
+
+export const metadata: Metadata = {
+  title: 'Recouvr.io – Relancez vos clients en toute sérénité',
+}
 
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
   name: 'Recouvr.io',
   url: 'https://recouvr.io',
-  description: 'Générez en 30 secondes 3 emails de relance professionnels pour vos factures impayées.',
+  description: 'Générez en 30 secondes 3 emails de relance professionnels pour vos factures impayées. Envoi automatique depuis votre Gmail aux bons moments.',
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   inLanguage: 'fr',
@@ -38,9 +43,9 @@ export default function Home() {
       <Hero />
       <ProblemSection />
       <SolutionSection />
+      <TimelineSection />
       <ShowcaseSection />
-      <HomeClient />
-      <Footer />
+<Footer />
     </>
   )
 }

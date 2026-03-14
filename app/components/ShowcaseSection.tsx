@@ -3,133 +3,139 @@ import Link from 'next/link'
 const FEATURES = [
   {
     icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-      </svg>
-    ),
-    title: '3 emails générés en 30 secondes',
-    desc: 'Rappel amical (J+7), relance ferme (J+15) et mise en demeure (J+30). Chaque email adapté au ton du niveau, prêt à copier ou envoyer.',
-  },
-  {
-    icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
       </svg>
     ),
-    title: 'Agent IA pour affiner',
-    desc: 'Donnez une instruction en langage naturel : "rends-le plus formel", "ajoute les pénalités de retard". Claude réécrit l\'email en un clic.',
+    accent: 'indigo',
+    tag: 'Génération IA',
+    title: '3 emails en 30 secondes',
+    desc: 'Rappel amical, relance ferme, mise en demeure. Chaque email est calibré au bon niveau d\'urgence. Vous pouvez affiner en langage naturel : "rends-le plus formel", "ajoute les pénalités de retard".',
+    points: ['Ton adapté à chaque niveau', 'Affinement IA en un clic', 'Objet et corps modifiables'],
   },
   {
     icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+      </svg>
+    ),
+    accent: 'violet',
+    tag: 'Auto-envoi',
+    title: 'Partent tout seuls aux bons moments',
+    desc: 'Activez l\'envoi automatique en un clic. Recouvr.io envoie vos relances depuis votre compte Gmail aux dates prévues — J+7, J+15, J+30 — sans intervention de votre part.',
+    points: ['Envoi depuis votre Gmail', 'Programmation automatique', 'Synchronisation Google Calendar'],
+  },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       </svg>
     ),
-    title: 'Tableau de bord de suivi',
-    desc: 'Montant total en attente, factures en cours, argent récupéré. Changez le statut de chaque relance (En attente / Payé / Litigieux) en un clic.',
-  },
-  {
-    icon: (
-      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    ),
-    title: 'Rappels Google Calendar',
-    desc: 'Synchronisez vos relances avec votre agenda Google. Visualisez les 30 prochains jours et ne laissez plus une relance passer à la trappe.',
+    accent: 'emerald',
+    tag: 'Dashboard',
+    title: 'Tout sous les yeux, rien à oublier',
+    desc: 'Montant total en attente, argent récupéré, état de chaque facture. Changez le statut en un clic, visualisez le calendrier des 30 prochains jours, modifiez les emails avant envoi.',
+    points: ['KPIs en temps réel', 'Statuts : En attente / Payé / Litigieux', 'Calendrier 30 jours'],
   },
 ]
 
+const accentMap: Record<string, { bg: string; text: string; border: string; iconBg: string; iconText: string; dot: string; check: string }> = {
+  indigo: {
+    bg: 'bg-indigo-500/10',
+    text: 'text-indigo-400',
+    border: 'border-indigo-500/20',
+    iconBg: 'bg-indigo-500/20',
+    iconText: 'text-indigo-400',
+    dot: 'bg-indigo-500',
+    check: 'text-indigo-400',
+  },
+  violet: {
+    bg: 'bg-violet-500/10',
+    text: 'text-violet-400',
+    border: 'border-violet-500/20',
+    iconBg: 'bg-violet-500/20',
+    iconText: 'text-violet-400',
+    dot: 'bg-violet-500',
+    check: 'text-violet-400',
+  },
+  emerald: {
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-400',
+    border: 'border-emerald-500/20',
+    iconBg: 'bg-emerald-500/20',
+    iconText: 'text-emerald-400',
+    dot: 'bg-emerald-500',
+    check: 'text-emerald-400',
+  },
+}
+
 export default function ShowcaseSection() {
   return (
-    <section className="py-24 px-8 bg-slate-900 overflow-hidden">
-      <div className="max-w-6xl mx-auto">
+    <section className="py-24 px-6 sm:px-8 bg-slate-900">
+      <div className="max-w-5xl mx-auto">
 
-        {/* Header */}
-        <div className="mb-16">
+        <div className="mb-14">
           <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-3">Fonctionnalités</p>
-          <h2 className="text-3xl font-extrabold tracking-tight text-white mb-4">
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-4">
             Tout ce qu'il faut pour<br className="hidden sm:block" /> récupérer votre argent.
           </h2>
-          <p className="text-slate-400 max-w-md">
-            De la génération instantanée à la gestion de vos relances dans le temps, Recouvr.io vous accompagne de bout en bout.
+          <p className="text-slate-400 max-w-lg leading-relaxed">
+            De la génération en 30 secondes à l'envoi automatique, Recouvr.io s'occupe de tout.
           </p>
         </div>
 
-        {/* Content: features left, screenshots right */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-
-          {/* Feature list */}
-          <div className="space-y-8">
-            {FEATURES.map(({ icon, title, desc }) => (
-              <div key={title} className="flex gap-4">
-                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center shrink-0 mt-0.5 text-indigo-400">
-                  {icon}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {FEATURES.map(({ icon, accent, tag, title, desc, points }) => {
+            const a = accentMap[accent]
+            return (
+              <div
+                key={tag}
+                className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 flex flex-col gap-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className={`w-11 h-11 rounded-xl ${a.iconBg} border ${a.border} flex items-center justify-center shrink-0 ${a.iconText}`}>
+                    {icon}
+                  </div>
+                  <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${a.bg} ${a.text} border ${a.border} whitespace-nowrap`}>
+                    {tag}
+                  </span>
                 </div>
+
                 <div>
-                  <h3 className="text-sm font-bold text-white mb-1">{title}</h3>
+                  <h3 className="text-base font-bold text-white mb-2 leading-snug">{title}</h3>
                   <p className="text-sm text-slate-400 leading-relaxed">{desc}</p>
                 </div>
+
+                <ul className="flex flex-col gap-2 mt-auto">
+                  {points.map(p => (
+                    <li key={p} className="flex items-center gap-2 text-xs text-slate-300">
+                      <svg className={`w-3.5 h-3.5 shrink-0 ${a.check}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      {p}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            ))}
-
-            <p className="flex items-center gap-1.5 text-xs text-slate-500 pt-2">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              Vos données et celles de vos clients sont chiffrées, hébergées en Europe et ne sont jamais revendues.
-            </p>
-
-            <div className="pt-2 flex flex-col sm:flex-row gap-3">
-              <a
-                href="#formulaire"
-                className="flex-1 flex items-center justify-center gap-2 border border-slate-600 hover:border-slate-400 text-slate-400 hover:text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"
-              >
-                Essayez gratuitement
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </a>
-              <Link
-                href="/pricing"
-                className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"
-              >
-                Passer Premium
-              </Link>
-            </div>
-          </div>
-
-          {/* Screenshots — overlapping */}
-          <div className="relative pb-24">
-            {/* Dashboard (main, back) */}
-            <div className="relative z-10 rotate-[1.5deg] rounded-2xl overflow-hidden shadow-2xl border border-white/10 ring-1 ring-white/5">
-              <img
-                src="/screenshots/dashboard_screenshot.png"
-                alt="Tableau de bord Recouvr.io"
-                className="w-full block"
-                loading="lazy"
-              />
-            </div>
-            {/* Desktop modal (middle, overlapping bottom-left) */}
-            <div className="absolute bottom-6 left-0 lg:-left-8 z-20 w-[66%] rotate-[-2deg] rounded-xl overflow-hidden shadow-2xl border border-white/10 ring-1 ring-white/5">
-              <img
-                src="/screenshots/desktop_screenshot.png"
-                alt="Génération d'emails de relance"
-                className="w-full block"
-                loading="lazy"
-              />
-            </div>
-            {/* Mobile modal (front, bottom-right, portrait) */}
-            <div className="absolute bottom-0 right-0 lg:-right-4 z-30 w-[28%] rotate-[3deg] rounded-xl overflow-hidden shadow-2xl border border-white/10 ring-1 ring-white/5">
-              <img
-                src="/screenshots/mobile_screenshot.png"
-                alt="Recouvr.io sur mobile"
-                className="w-full block"
-                loading="lazy"
-              />
-            </div>
-          </div>
-
+            )
+          })}
         </div>
+
+        <div className="mt-10 flex flex-col sm:flex-row gap-3">
+          <a
+            href="/"
+            className="flex-1 flex items-center justify-center gap-2 border border-slate-600 hover:border-slate-400 text-slate-400 hover:text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"
+          >
+            Voir le dashboard →
+          </a>
+          <Link
+            href="/pricing"
+            className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"
+          >
+            Voir les tarifs
+          </Link>
+        </div>
+
       </div>
     </section>
   )

@@ -1041,26 +1041,26 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
           onClick={e => { if (e.target === e.currentTarget) setEditingEvent(null) }}
         >
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">Modifier la date du rappel</h3>
-            <p className="text-xs text-gray-500 mb-4">
-              <span className="font-medium text-gray-700">{editingEvent.nomClient}</span>
+          <div className="bg-[--card] border border-[--bd2] rounded-2xl shadow-xl p-6 w-full max-w-sm">
+            <h3 className="text-sm font-bold text-[--t1] mb-1">Modifier la date du rappel</h3>
+            <p className="text-xs text-[--t3] mb-4">
+              <span className="font-medium text-[--t2]">{editingEvent.nomClient}</span>
               {editingEvent.numeroFacture && (
-                <span className="ml-1.5 text-xs font-medium text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">{editingEvent.numeroFacture}</span>
+                <span className="ml-1.5 text-xs font-medium text-[--t3] bg-[--bg2] rounded px-1.5 py-0.5">{editingEvent.numeroFacture}</span>
               )}
               {' '}— {LEVEL_LABELS[editingEvent.niveau]}<br />
-              <span className="text-gray-400">Si l'auto-envoi est actif, l'email sera reprogrammé à cette date.</span>
+              <span className="text-[--t3]">Si l'auto-envoi est actif, l'email sera reprogrammé à cette date.</span>
             </p>
             <input
               type="date"
               value={editDate}
               onChange={e => setEditDate(e.target.value)}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:border-indigo-400 mb-4"
+              className="w-full border border-[--bd] rounded-lg px-3 py-2 text-sm text-[--t1] bg-[--bg2] focus:outline-none focus:border-indigo-400 mb-4"
             />
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setEditingEvent(null)}
-                className="text-xs px-4 py-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                className="text-xs px-4 py-2 rounded-lg border border-[--bd] text-[--t3] hover:bg-[--bg2] transition-colors"
               >
                 Annuler
               </button>

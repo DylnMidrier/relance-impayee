@@ -125,6 +125,16 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
     }
   }, [])
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('open') === 'generate') {
+      setShowGenerateModal(true)
+      const url = new URL(window.location.href)
+      url.searchParams.delete('open')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [])
+
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     let enAttente = 0, enCours = 0, recupere = 0
@@ -1165,6 +1175,9 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               >
                 {generateLoading ? 'Enregistrement…' : 'Générer mes 3 emails →'}
               </button>
+              <p className="text-center text-[10px] text-[--t3] mt-1">
+                Les informations de votre client ne sont jamais partagées ni revendues.
+              </p>
             </form>
           </div>
         </div>

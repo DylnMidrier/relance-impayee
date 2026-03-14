@@ -122,12 +122,12 @@ export default function ShowcaseSection() {
         </div>
 
         <div className="mt-10 flex flex-col sm:flex-row gap-3">
-          <a
-            href="/"
+          <Link
+            href="/dashboard"
             className="flex-1 flex items-center justify-center gap-2 border border-slate-600 hover:border-slate-400 text-slate-400 hover:text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"
           >
             Voir le dashboard →
-          </a>
+          </Link>
           <Link
             href="/pricing"
             className="flex-1 flex items-center justify-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-6 py-3 rounded-xl transition-colors no-underline"

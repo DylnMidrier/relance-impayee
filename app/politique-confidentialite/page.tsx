@@ -18,6 +18,7 @@ const SECTIONS = [
 • Données de compte : adresse e-mail, utilisées pour l'authentification via Supabase Auth.
 • Données de facturation : nom du client, e-mail du client, numéro de facture, montant, date d'échéance (saisies par vous lors de la création d'une relance).
 • Données de suivi : statut des relances (planifiée, envoyée), dates d'envoi, identifiants d'événements Google Calendar (si vous activez la synchronisation).
+• Accès Gmail (si vous activez l'auto-envoi) : nous utilisons le scope gmail.send pour envoyer vos emails de relance depuis votre compte Gmail. Nous n'accédons pas à vos emails existants, votre boîte de réception ou toute autre donnée Gmail au-delà de l'envoi d'emails que vous avez définis.
 • Données techniques : logs d'accès minimaux à des fins de sécurité.
 
 Nous ne collectons aucune donnée de paiement (les transactions éventuelles sont gérées par un prestataire tiers).`,
@@ -29,6 +30,7 @@ Nous ne collectons aucune donnée de paiement (les transactions éventuelles son
 • Fournir le service de génération et de suivi des emails de relance.
 • Authentifier votre compte et sécuriser votre accès.
 • Synchroniser vos rappels avec Google Calendar (uniquement si vous activez cette fonctionnalité).
+• Envoyer vos emails de relance depuis votre compte Gmail (si vous activez l'auto-envoi). Les emails sont envoyés en votre nom via l'API Gmail ; nous ne stockons pas le contenu des emails envoyés au-delà de ce que vous avez saisi dans le service.
 • Améliorer vos emails via notre agent IA (plan Premium uniquement ; le texte de votre email et votre instruction sont transmis à l'API Anthropic Claude).
 • Vous contacter en cas de problème technique critique affectant votre compte.`,
   },
@@ -37,7 +39,7 @@ Nous ne collectons aucune donnée de paiement (les transactions éventuelles son
     content: `Le traitement de vos données repose sur :
 
 • L'exécution du contrat : les données nécessaires au fonctionnement du service (compte, factures, relances).
-• Votre consentement explicite : pour la synchronisation Google Calendar, accordée lors de l'autorisation OAuth.
+• Votre consentement explicite : pour la synchronisation Google Calendar et l'envoi d'emails via Gmail, accordés lors de l'autorisation OAuth Google.
 • Notre intérêt légitime : pour la sécurité et la stabilité du service.`,
   },
   {
@@ -46,15 +48,15 @@ Nous ne collectons aucune donnée de paiement (les transactions éventuelles son
 
 • Supabase : hébergement de la base de données et authentification (infrastructure AWS, datacenter Union Européenne).
 • Anthropic : traitement IA des emails (plan Premium). Les données transmises sont limitées au contenu de l'email et à votre instruction. Anthropic s'engage contractuellement à ne pas utiliser ces données pour entraîner ses modèles.
-• Google : authentification OAuth et synchronisation Google Calendar. Lors de la connexion, Google reçoit une demande d'authentification et nous transmet votre adresse e-mail et photo de profil. Si vous activez la synchronisation Calendar, nous créons et supprimons des événements dans votre agenda via l'API Google Calendar. Ces données sont soumises à la politique de confidentialité de Google : policies.google.com/privacy
+• Google : authentification OAuth, synchronisation Google Calendar et envoi d'emails via Gmail. Lors de la connexion, Google reçoit une demande d'authentification et nous transmet votre adresse e-mail et photo de profil. Si vous activez la synchronisation Calendar, nous créons et supprimons des événements dans votre agenda via l'API Google Calendar (scope calendar.events). Si vous activez l'auto-envoi, nous envoyons vos emails de relance depuis votre compte Gmail via l'API Gmail (scope gmail.send) — nous n'accédons à aucune autre donnée de votre boîte Gmail. Ces données sont soumises à la politique de confidentialité de Google : policies.google.com/privacy
 • Vercel : hébergement de l'application (infrastructure EU).
 • Stripe : gestion des paiements et abonnements (plan Premium). Stripe traite vos données de paiement directement ; nous ne stockons aucune donnée bancaire.
 
 Partage des données utilisateur Google avec des tiers :
-Les données que nous recevons de Google (adresse e-mail, photo de profil pour l'authentification ; identifiants d'événements Calendar si vous activez la synchronisation) sont communiquées aux tiers suivants, dans la stricte limite du nécessaire :
-• Supabase : stockage sécurisé de votre profil (adresse e-mail, identifiant utilisateur, identifiants d'événements Calendar).
+Les données que nous recevons de Google (adresse e-mail, photo de profil pour l'authentification ; identifiants d'événements Calendar si vous activez la synchronisation ; accès gmail.send si vous activez l'auto-envoi) sont communiquées aux tiers suivants, dans la stricte limite du nécessaire :
+• Supabase : stockage sécurisé de votre profil (adresse e-mail, identifiant utilisateur, identifiants d'événements Calendar). Les tokens OAuth Google sont stockés de façon chiffrée afin de permettre l'envoi automatique.
 • Vercel : hébergement de l'application (vos données transitent par les serveurs Vercel lors des requêtes HTTP).
-Nous ne partageons pas vos données utilisateur Google avec Anthropic, Stripe, ni aucun autre tiers non listé ci-dessus. Vos données Google ne sont jamais revendues ni utilisées à des fins publicitaires.`,
+Nous ne partageons pas vos données utilisateur Google avec Anthropic, Stripe, ni aucun autre tiers non listé ci-dessus. Vos données Google ne sont jamais revendues ni utilisées à des fins publicitaires. L'accès gmail.send est utilisé exclusivement pour envoyer les emails de relance que vous avez définis — nous ne lisons jamais votre boîte de réception ni vos emails existants.`,
   },
   {
     title: '6. Durée de conservation',
@@ -71,7 +73,7 @@ Les logs techniques sont conservés 90 jours à des fins de sécurité.`,
 • Droit à l'effacement : demander la suppression de vos données.
 • Droit à la portabilité : recevoir vos données dans un format structuré.
 • Droit d'opposition : vous opposer à un traitement basé sur notre intérêt légitime.
-• Droit de retrait du consentement : révoquer à tout moment l'accès à Google Calendar depuis votre tableau de bord.
+• Droit de retrait du consentement : révoquer à tout moment l'accès à Google Calendar et à Gmail depuis votre tableau de bord, ou directement depuis votre compte Google (myaccount.google.com/permissions).
 
 Pour exercer ces droits, contactez-nous à : contact@recouvr.io. Vous pouvez également introduire une réclamation auprès de la CNIL (www.cnil.fr).`,
   },
@@ -114,7 +116,7 @@ export default function PolitiqueConfidentialite() {
               Politique de confidentialité
             </h1>
             <p className="text-slate-400">
-              Dernière mise à jour : février 2026
+              Dernière mise à jour : mars 2026
             </p>
           </div>
 

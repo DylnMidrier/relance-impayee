@@ -20,6 +20,7 @@ En créant un compte ou en utilisant le service, vous acceptez sans réserve les
 • Générer des emails de relance professionnels pour des factures impayées.
 • Suivre l'historique des relances et leur statut.
 • Synchroniser des rappels avec Google Calendar (plan Premium).
+• Envoyer automatiquement vos emails de relance depuis votre compte Gmail (auto-envoi, plan Premium).
 • Personnaliser les emails via un agent IA (plan Premium).
 
 Le service est fourni tel quel, dans un objectif d'aide à la rédaction. Recouvr.io ne garantit pas le recouvrement des créances et n'intervient à aucun moment dans la relation commerciale entre l'utilisateur et ses clients.`,
@@ -120,7 +121,7 @@ export default function ConditionsUtilisation() {
               Conditions Générales d'Utilisation
             </h1>
             <p className="text-slate-400">
-              Dernière mise à jour : février 2026
+              Dernière mise à jour : mars 2026
             </p>
           </div>
 

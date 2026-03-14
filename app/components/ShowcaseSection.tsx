@@ -22,7 +22,7 @@ const FEATURES = [
     accent: 'violet',
     tag: 'Auto-envoi',
     title: 'Partent tout seuls aux bons moments',
-    desc: 'Activez l\'envoi automatique en un clic. Recouvr.io envoie vos relances depuis votre compte Gmail aux dates prévues — J+7, J+15, J+30 — sans intervention de votre part.',
+    desc: 'Activez l\'envoi automatique en un clic. Recouvr.io envoie vos relances depuis votre compte Gmail aux dates prévues (J+7, J+15, J+30) sans intervention de votre part.',
     points: ['Envoi depuis votre Gmail', 'Programmation automatique', 'Synchronisation Google Calendar'],
   },
   {

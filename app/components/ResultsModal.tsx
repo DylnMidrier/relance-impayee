@@ -368,7 +368,7 @@ export default function ResultsModal({ show, onClose, emails, form, onRegenerate
               </button>
             </div>
           )}
-        </div>
+        </div> 
       </div>
 
       {/* Toast erreur IA */}

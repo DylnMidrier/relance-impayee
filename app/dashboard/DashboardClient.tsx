@@ -43,9 +43,6 @@ function FormatEuroSplit({ n }: { n: number | null }) {
   )
 }
 
-function formatDateShort(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
-}
 
 function normalizeStatus(statut: string | null) {
   if (statut === 'payé' || statut === 'litigieux') return statut
@@ -864,15 +861,18 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                 const status = normalizeStatus(facture.statut)
                 return (
                   <div key={facture.id} className="bg-[--bg]/50 border border-[--bd3] rounded-2xl p-4 sm:p-5">
-                    {/* Row 1 — nom + select statut + supprimer */}
-                    <div className="flex items-center gap-2 min-w-0 mb-4">
-                      <p className="text-sm font-bold text-[--t1] truncate flex-1 min-w-0 capitalize">
-                        {facture.nom_client}
-                      </p>
+                    {/* Row 1 — nom + email + statut + supprimer */}
+                    <div className="flex items-start gap-2 min-w-0 mb-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-[--t1] truncate capitalize">{facture.nom_client}</p>
+                        {facture.email_client && (
+                          <p className="text-xs text-[--t3] truncate mt-0.5">{facture.email_client}</p>
+                        )}
+                      </div>
                       <select
                         value={status}
                         onChange={e => handleStatusChange(facture.id, e.target.value)}
-                        className={`shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-full border cursor-pointer appearance-none transition-colors uppercase tracking-wide ${
+                        className={`shrink-0 text-[9px] font-bold px-2 py-1 rounded-full border cursor-pointer appearance-none transition-colors uppercase tracking-wide ${
                           status === 'payé'
                             ? 'bg-emerald-100 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-400'
                             : status === 'litigieux'
@@ -886,124 +886,127 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                       </select>
                       <button
                         onClick={() => setDeletingFacture({ facture, deleteGCal: plan !== 'free' && (facture.gcal_event_ids?.length ?? 0) > 0 })}
-                        title="Supprimer cette relance"
-                        className="shrink-0 p-2 text-[--t3] hover:text-red-400 hover:bg-red-500/10 rounded-lg border border-[--bd] transition-colors"
+                        title="Supprimer cette facture"
+                        className="shrink-0 p-1.5 text-[--t3] hover:text-red-400 hover:bg-red-500/10 rounded-lg border border-[--bd] transition-colors"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                     </div>
 
-                    {/* Row 2 — bloc infos (ref / montant / échéance + email) */}
-                    <div className="bg-[--s1] border border-[--bd3] rounded-xl p-3 sm:p-4 mb-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-4">
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-semibold text-[--t3] uppercase tracking-widest mb-1.5">Référence</p>
-                        <p className="font-mono text-xs text-[--t2] truncate">
-                          {facture.numero_facture ?? '—'}
-                        </p>
-                      </div>
-                      <div className="text-center shrink-0">
-                        <p className="text-xl sm:text-3xl font-black text-[--t1] tracking-tight leading-none flex items-baseline justify-center">
+                    {/* Row 2 — montant + échéance + ref */}
+                    <div className="bg-[--s1] border border-[--bd3] rounded-xl p-3 sm:p-4 mb-3 flex justify-between items-start gap-4">
+                      <div>
+                        <p className="text-[9px] font-semibold text-[--t3] uppercase tracking-widest mb-1.5">Montant</p>
+                        <p className="text-2xl sm:text-3xl font-black text-[--t1] tracking-tight leading-none flex items-baseline">
                           <FormatEuroSplit n={facture.montant} />
                         </p>
                       </div>
-                      <div className="text-right min-w-0">
+                      <div className="text-right">
                         <p className="text-[9px] font-semibold text-[--t3] uppercase tracking-widest mb-1.5">Échéance</p>
                         {facture.date_echeance ? (
-                          <p className="text-base font-bold text-amber-600 dark:text-amber-400 leading-none">{formatDateShort(facture.date_echeance)}</p>
+                          <p className="text-base font-bold text-amber-500 dark:text-amber-400 leading-none">
+                            {new Date(facture.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </p>
                         ) : (
                           <p className="text-sm text-[--t3]">—</p>
                         )}
-                        {facture.email_client && (
-                          <p className="text-[10px] text-[--t3] truncate mt-1">{facture.email_client}</p>
+                        {facture.numero_facture && (
+                          <p className="text-[10px] text-[--t3] mt-1.5">Réf. {facture.numero_facture}</p>
                         )}
                       </div>
                     </div>
 
-                    {/* Row 3 — niveaux + envoi auto sur la même ligne */}
+                    {/* Row 3 — relances en lignes + envoi auto */}
                     {status !== 'payé' && (() => {
                       const autoActive = (facture.scheduled_sends ?? []).some(s => !s.sent_at)
                       const nextSend = (facture.scheduled_sends ?? [])
                         .filter(s => !s.sent_at)
                         .sort((a, b) => new Date(a.send_at).getTime() - new Date(b.send_at).getTime())[0]
-                      const sentColors = ['', 'bg-indigo-100 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-500/25', 'bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/25', 'bg-red-100 dark:bg-red-500/15 text-red-700 dark:text-red-300 border-red-200 dark:border-red-500/25']
-                      const sentDots = ['', 'bg-indigo-500 dark:bg-indigo-400', 'bg-amber-500 dark:bg-amber-400', 'bg-red-500 dark:bg-red-400']
+                      const pendingCount = (facture.scheduled_sends ?? []).filter(s => !s.sent_at).length
+                      const totalCount = (facture.scheduled_sends ?? []).length
+                      const rowBg     = ['', 'bg-[--s1] border border-indigo-400/40 shadow-[0_0_8px_rgba(99,102,241,0.25)]', 'bg-[--s1] border border-amber-400/40 shadow-[0_0_8px_rgba(251,191,36,0.25)]', 'bg-[--s1] border border-red-400/40 shadow-[0_0_8px_rgba(248,113,113,0.25)]']
+                      const rowBgSent = ['', 'bg-indigo-500/20 border border-indigo-500/60 dark:border-indigo-400 dark:shadow-[0_0_10px_rgba(99,102,241,0.6)]', 'bg-amber-500/20 border border-amber-500/60 dark:border-amber-400 dark:shadow-[0_0_10px_rgba(251,191,36,0.6)]', 'bg-red-500/20 border border-red-500/60 dark:border-red-400 dark:shadow-[0_0_10px_rgba(248,113,113,0.6)]']
+                      const labelColor     = ['', 'text-[--t2]', 'text-[--t2]', 'text-[--t2]']
+                      const labelColorSent = ['', 'text-indigo-700 dark:text-indigo-200', 'text-amber-700 dark:text-amber-200', 'text-red-700 dark:text-red-200']
+                      const dotColor     = ['', 'bg-[--t3]', 'bg-[--t3]', 'bg-[--t3]']
+                      const dotColorSent = ['', 'bg-indigo-600 dark:bg-indigo-400', 'bg-amber-600 dark:bg-amber-400', 'bg-red-600 dark:bg-red-400']
                       return (
-                        <div className="flex flex-wrap items-center gap-2">
-                          {([1, 2, 3] as const).map(n => {
-                            const relance = (facture.relances ?? []).find(r => r.niveau === n)
-                            const sent = relance?.statut === 'envoyée'
-                            const dateStr = relance?.date_planifiee ?? (facture.date_echeance ? addDays(facture.date_echeance, LEVEL_OFFSETS[n]) : null)
-                            const dateLabel = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
-                            const hasRelance = !!relance
-                            return (
-                              <div key={n} className="flex items-center gap-0.5">
-                                <button
-                                  onClick={() => handleToggleEnvoi(facture, n)}
-                                  title={sent ? `Annuler la relance ${n}` : `Marquer la relance ${n} comme envoyée`}
-                                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
-                                    sent
-                                      ? sentColors[n]
-                                      : 'bg-[--s1] border-[--bd2] text-[--t3] hover:border-[--bd3] hover:text-[--t2]'
-                                  }`}
-                                >
-                                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${sent ? sentDots[n] : 'bg-gray-400/60 dark:bg-white/20'}`} />
-                                  {n === 1 ? '1re relance' : n === 2 ? '2e relance' : 'Mise en demeure'}
-                                  {dateLabel && (
-                                    <span className={`font-normal ${sent ? 'opacity-70' : 'text-[--t3]'}`}>· {dateLabel}</span>
-                                  )}
-                                </button>
-                                {hasRelance && (
+                        <>
+                          <div className="space-y-1 mb-3">
+                            {([1, 2, 3] as const).map(n => {
+                              const relance = (facture.relances ?? []).find(r => r.niveau === n)
+                              const sent = relance?.statut === 'envoyée'
+                              const dateStr = relance?.date_planifiee ?? (facture.date_echeance ? addDays(facture.date_echeance, LEVEL_OFFSETS[n]) : null)
+                              const dateLabel = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
+                              return (
+                                <div key={n} className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${sent ? rowBgSent[n] : rowBg[n]}`}>
                                   <button
-                                    onClick={() => openEditEmail(facture, n)}
-                                    title="Modifier l'email"
-                                    className="p-1 text-[--t3] hover:text-[--t2] transition-colors rounded"
+                                    onClick={() => handleToggleEnvoi(facture, n)}
+                                    title={sent ? `Annuler la relance ${n}` : `Marquer la relance ${n} comme envoyée`}
+                                    className="flex items-center gap-2 min-w-0"
                                   >
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                    </svg>
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${sent ? dotColorSent[n] : dotColor[n]}`} />
+                                    <span className={`text-sm font-semibold ${sent ? labelColorSent[n] : labelColor[n]}`}>
+                                      {n === 1 ? '1re relance' : n === 2 ? '2e relance' : 'Mise en demeure'}
+                                    </span>
                                   </button>
-                                )}
-                              </div>
-                            )
-                          })}
+                                  <div className="flex items-center gap-0.5 shrink-0 ml-2">
+                                    {dateLabel && (
+                                      <span className={`text-xs ${sent ? labelColorSent[n] : 'text-[--t3]'}`}>{dateLabel}</span>
+                                    )}
+                                    {!!relance && (
+                                      <button
+                                        onClick={() => openEditEmail(facture, n)}
+                                        title="Modifier l'email"
+                                        className="p-2 text-[--t3] hover:text-[--t2] transition-colors rounded"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {/* Envoi auto */}
                           {autoActive ? (
-                            <button
-                              onClick={() => handleToggleAutoSend(facture)}
-                              className="ml-auto inline-flex items-center gap-2 text-xs font-semibold px-4 py-1.5 rounded-full bg-[#7c6dfa] text-white shadow-[0_0_20px_rgba(124,109,250,0.35)] hover:bg-[#6a5be0] transition-all"
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-white animate-pulse" />
-                              Envoi auto
-                              {nextSend && (
-                                <>
-                                  <span className="font-normal opacity-80 hidden sm:inline">
-                                    · {new Date(nextSend.send_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                  <span className="font-normal opacity-80 sm:hidden">
-                                    · {new Date(nextSend.send_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                                  </span>
-                                </>
-                              )}
-                            </button>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#7c6dfa]/70 animate-pulse shrink-0" />
+                                <span className="text-xs text-[--t3]">Envoi auto · {pendingCount}/{totalCount}</span>
+                              </div>
+                              <button
+                                onClick={() => handleToggleAutoSend(facture)}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full bg-[#7c6dfa] text-white shadow-[0_0_16px_rgba(124,109,250,0.4)] hover:bg-[#6a5be0] transition-all"
+                              >
+                                {nextSend && new Date(nextSend.send_at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              </button>
+                            </div>
                           ) : (
-                            <button
-                              onClick={() => handleToggleAutoSend(facture)}
-                              className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full border border-[#7c6dfa]/30 text-[#7c6dfa] bg-[#7c6dfa]/5 hover:bg-[#7c6dfa]/15 hover:border-[#7c6dfa]/60 hover:shadow-[0_0_12px_rgba(124,109,250,0.2)] transition-all"
-                            >
-                              {plan === 'free' ? (
-                                <svg className="w-3 h-3 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                              ) : (
-                                <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M13 2L4.5 13.5H11L10 22L20.5 9.5H14L13 2Z" />
-                                </svg>
-                              )}
-                              Envoi auto
-                            </button>
+                            <div className="flex justify-end">
+                              <button
+                                onClick={() => handleToggleAutoSend(facture)}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full border border-[#7c6dfa]/30 text-[#7c6dfa] bg-[#7c6dfa]/5 hover:bg-[#7c6dfa]/15 hover:border-[#7c6dfa]/60 transition-all"
+                              >
+                                {plan === 'free' ? (
+                                  <svg className="w-3 h-3 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M13 2L4.5 13.5H11L10 22L20.5 9.5H14L13 2Z" />
+                                  </svg>
+                                )}
+                                Envoi auto
+                              </button>
+                            </div>
                           )}
-                        </div>
+                        </>
                       )
                     })()}
                     {status === 'payé' && (facture.gcal_event_ids?.length ?? 0) > 0 && plan !== 'free' && (
@@ -1264,19 +1267,19 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
           onClick={e => { if (e.target === e.currentTarget && !deleting) setDeletingFacture(null) }}
         >
-          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+          <div className="bg-[--card] border border-[--bd2] rounded-2xl shadow-xl p-6 w-full max-w-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <div className="w-9 h-9 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-sm font-bold text-gray-900">Supprimer la relance</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <h3 className="text-sm font-bold text-[--t1]">Supprimer la facture</h3>
+                <p className="text-xs text-[--t3] mt-0.5">
                   {deletingFacture.facture.nom_client}
                   {deletingFacture.facture.numero_facture && (
-                    <span className="ml-1.5 text-[10px] font-medium text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">
+                    <span className="ml-1.5 text-[10px] font-medium text-[--t3] bg-[--bg2] rounded px-1.5 py-0.5">
                       {deletingFacture.facture.numero_facture}
                     </span>
                   )}
@@ -1286,35 +1289,35 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
 
             {(deletingFacture.facture.gcal_event_ids?.length ?? 0) > 0 && (
               plan === 'free' ? (
-                <div className="flex items-start gap-2.5 mb-4 p-3 rounded-xl bg-gray-50 border border-gray-100 opacity-50">
+                <div className="flex items-start gap-2.5 mb-4 p-3 rounded-xl bg-[--bg2] border border-[--bd] opacity-50">
                   <input type="checkbox" disabled className="mt-0.5 shrink-0" />
-                  <span className="text-xs text-gray-500 leading-relaxed flex-1">
+                  <span className="text-xs text-[--t3] leading-relaxed flex-1">
                     Supprimer également les rappels Google Calendar associés
                   </span>
-                  <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full shrink-0">Premium</span>
+                  <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded-full shrink-0">Premium</span>
                 </div>
               ) : (
-                <label className="flex items-start gap-2.5 mb-4 cursor-pointer p-3 rounded-xl bg-gray-50 border border-gray-100">
+                <label className="flex items-start gap-2.5 mb-4 cursor-pointer p-3 rounded-xl bg-[--bg2] border border-[--bd]">
                   <input
                     type="checkbox"
                     checked={deletingFacture.deleteGCal}
                     onChange={e => setDeletingFacture(prev => prev ? { ...prev, deleteGCal: e.target.checked } : null)}
                     className="mt-0.5 accent-red-500 shrink-0"
                   />
-                  <span className="text-xs text-gray-600 leading-relaxed">
+                  <span className="text-xs text-[--t2] leading-relaxed">
                     Supprimer également les rappels Google Calendar associés
                   </span>
                 </label>
               )
             )}
 
-            <p className="text-xs text-gray-400 mb-5">Cette action est irréversible.</p>
+            <p className="text-xs text-[--t3] mb-5">Cette action est irréversible.</p>
 
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setDeletingFacture(null)}
                 disabled={deleting}
-                className="text-xs px-4 py-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="text-xs px-4 py-2 rounded-lg border border-[--bd] text-[--t3] hover:bg-[--bg2] transition-colors disabled:opacity-50"
               >
                 Annuler
               </button>

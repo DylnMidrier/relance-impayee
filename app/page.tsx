@@ -5,6 +5,8 @@ import ProblemSection from './components/ProblemSection'
 import SolutionSection from './components/SolutionSection'
 import TimelineSection from './components/TimelineSection'
 import ShowcaseSection from './components/ShowcaseSection'
+import PricingTeaser from './components/PricingTeaser'
+import FAQSection from './components/FAQSection'
 import Footer from './components/Footer'
 
 export const metadata: Metadata = {
@@ -45,7 +47,9 @@ export default function Home() {
       <SolutionSection />
       <TimelineSection />
       <ShowcaseSection />
-<Footer />
+      <FAQSection />
+      <PricingTeaser />
+      <Footer />
     </>
   )
 }

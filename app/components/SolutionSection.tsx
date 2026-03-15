@@ -55,7 +55,7 @@ export default function SolutionSection() {
         <div className="mb-12">
           <p className="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-3">Comment ça marche</p>
           <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900 mb-4">
-            Quatre étapes, une seule règle :<br className="hidden sm:block" />
+            Quatre étapes, une seule règle :{' '}<br className="hidden sm:block" />
             <span className="text-indigo-600">ne plus y penser.</span>
           </h2>
           <p className="text-gray-500 max-w-lg leading-relaxed">

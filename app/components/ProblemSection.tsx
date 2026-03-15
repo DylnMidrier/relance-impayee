@@ -60,11 +60,12 @@ export default function ProblemSection() {
         </div>
 
         <div className="mt-12 pt-10 border-t border-slate-800 text-center">
-          <span className="block text-6xl font-black text-white mb-3">30&nbsp;%</span>
-          <p className="text-slate-400 text-sm">
-            des factures impayées ne sont jamais relancées.{' '}
-            <span className="text-slate-200 font-medium">Pas par mauvaise volonté. Par manque d'outil.</span>
+          <span className="block text-6xl font-black text-white mb-3">82&nbsp;%</span>
+          <p className="text-slate-400 text-sm max-w-sm mx-auto">
+            des indépendants subissent des retards de paiement.{' '}
+            <span className="text-slate-200 font-medium">La majorité n'envoie jamais de relance formelle.</span>
           </p>
+          <p className="text-slate-600 text-xs mt-3">Source : Coface 2023</p>
         </div>
 
       </div>

@@ -49,5 +49,7 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(origin)
+  const next = searchParams.get('next')
+  const redirectUrl = next === 'generate' ? `${origin}/dashboard?open=generate` : origin
+  return NextResponse.redirect(redirectUrl)
 }

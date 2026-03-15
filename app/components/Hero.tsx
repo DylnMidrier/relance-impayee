@@ -57,7 +57,7 @@ export default function Hero() {
   }
 
   return (
-    <section className="px-6 sm:px-8 min-h-screen bg-white flex items-center pt-[20vh] sm:pt-0 pb-20 sm:pb-28">
+    <section className="px-6 sm:px-8 min-h-screen bg-white flex items-center pt-[20vh] pb-20 sm:py-28">
       <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
 
         <div>

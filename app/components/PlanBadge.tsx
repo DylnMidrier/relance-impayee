@@ -38,8 +38,8 @@ export default function PlanBadge() {
 
   if (plan === 'premium') {
     return (
-      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-600">
-        ✦ Premium
+      <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-gradient-to-r from-violet-500 via-rose-400 to-orange-400 text-white shadow-md shadow-violet-500/20">
+        + Premium
       </span>
     )
   }

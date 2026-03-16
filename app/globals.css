@@ -5,8 +5,8 @@
 /* ── Thème sombre (défaut) ──────────────────────────────────────────────── */
 :root {
   color-scheme: dark;
-  --bg:   #0c0e14;
-  --card: #13151f;
+  --bg:   #141628;
+  --card: #1c1f3a;
   --t1:   #f0f2ff;
   --t2:   #8891b4;
   --t3:   #454d6e;
@@ -21,7 +21,7 @@
 /* ── Thème clair ────────────────────────────────────────────────────────── */
 html:not(.dark) {
   color-scheme: light;
-  --bg:   #f0f2ff;
+  --bg:   #f2ede8;
   --card: #ffffff;
   --t1:   #0c0e14;
   --t2:   #4a5080;

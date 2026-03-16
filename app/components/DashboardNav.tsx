@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import type { User } from '@supabase/supabase-js'
 import { createClient } from '../lib/supabase'
@@ -10,6 +10,20 @@ import { useTheme } from './ThemeProvider'
 export default function DashboardNav({ plan }: { plan: Plan }) {
   const [user, setUser] = useState<User | null>(null)
   const { theme, toggle } = useTheme()
+  const [visible, setVisible] = useState(true)
+  const lastY = useRef(0)
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY
+      if (y < 10) setVisible(true)
+      else if (y > lastY.current + 8) setVisible(false)
+      else if (y < lastY.current - 4) setVisible(true)
+      lastY.current = y
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     const supabase = createClient()
@@ -29,7 +43,7 @@ export default function DashboardNav({ plan }: { plan: Plan }) {
   const firstName = (meta?.full_name ?? meta?.name ?? '').split(' ')[0]
 
   return (
-    <nav className="sticky top-0 z-50 flex items-center justify-between px-4 sm:px-8 py-3 bg-[--bg]/95 backdrop-blur-sm border-b border-[--bd]">
+    <nav className={`sticky top-0 z-50 flex items-center justify-between px-4 sm:px-8 py-3 bg-[--bg]/95 backdrop-blur-sm border-b border-[--bd] transition-transform duration-300 ease-in-out ${visible ? 'translate-y-0' : '-translate-y-full'}`}>
       <a href="/" className="flex items-center gap-1.5 no-underline group">
         <img src="/recouvr_logo.webp" alt="Recouvr.io" className="w-8 h-8 sm:w-9 sm:h-9 shrink-0" />
         <span className="text-base sm:text-lg font-black tracking-tight text-[--t1]">
@@ -56,8 +70,8 @@ export default function DashboardNav({ plan }: { plan: Plan }) {
         </button>
 
         {plan === 'premium' ? (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-[#7c6dfa]/30 bg-[#7c6dfa]/10 text-[#7c6dfa]">
-            ✦ Premium
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-gradient-to-r from-violet-500 via-rose-400 to-orange-400 text-white shadow-md shadow-violet-500/20">
+            + Premium
           </span>
         ) : (
           <Link

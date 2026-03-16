@@ -52,9 +52,9 @@ function normalizeStatus(statut: string | null) {
 const DAY_ABBR = ['Di', 'Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa']
 
 const LEVEL_COLORS: Record<number, { chip: string; dot: string }> = {
-  1: { chip: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300', dot: 'bg-indigo-500 dark:bg-indigo-400' },
-  2: { chip: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300', dot: 'bg-amber-500 dark:bg-amber-400' },
-  3: { chip: 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300', dot: 'bg-red-500 dark:bg-red-400' },
+  1: { chip: 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300', dot: 'bg-indigo-500' },
+  2: { chip: 'bg-orange-100 dark:bg-amber-900/40 text-orange-700 dark:text-amber-300', dot: 'bg-orange-500' },
+  3: { chip: 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300', dot: 'bg-rose-500' },
 }
 
 const LEVEL_LABELS: Record<number, string> = { 1: 'J+7', 2: 'J+15', 3: 'J+30' }
@@ -877,7 +877,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                             ? 'bg-emerald-100 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-400'
                             : status === 'litigieux'
                             ? 'bg-red-100 dark:bg-red-500/15 border-red-300 dark:border-red-500/25 text-red-700 dark:text-red-400'
-                            : 'bg-amber-100 dark:bg-amber-500/15 border-amber-300 dark:border-amber-500/25 text-amber-700 dark:text-amber-400'
+                            : 'bg-orange-100 dark:bg-orange-500/10 border-orange-300 dark:border-orange-500/30 text-orange-700 dark:text-orange-400'
                         }`}
                       >
                         {STATUS_OPTIONS.map(o => (
@@ -906,7 +906,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                       <div className="text-right">
                         <p className="text-[9px] font-semibold text-[--t3] uppercase tracking-widest mb-1.5">Échéance</p>
                         {facture.date_echeance ? (
-                          <p className="text-base font-bold text-amber-500 dark:text-amber-400 leading-none">
+                          <p className="text-base text-orange-600 dark:text-orange-400 leading-none">
                             {new Date(facture.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </p>
                         ) : (
@@ -926,12 +926,12 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                         .sort((a, b) => new Date(a.send_at).getTime() - new Date(b.send_at).getTime())[0]
                       const pendingCount = (facture.scheduled_sends ?? []).filter(s => !s.sent_at).length
                       const totalCount = (facture.scheduled_sends ?? []).length
-                      const rowBg     = ['', 'bg-[--s1] border border-indigo-400/40 shadow-[0_0_8px_rgba(99,102,241,0.25)]', 'bg-[--s1] border border-amber-400/40 shadow-[0_0_8px_rgba(251,191,36,0.25)]', 'bg-[--s1] border border-red-400/40 shadow-[0_0_8px_rgba(248,113,113,0.25)]']
-                      const rowBgSent = ['', 'bg-indigo-500/20 border border-indigo-500/60 dark:border-indigo-400 dark:shadow-[0_0_10px_rgba(99,102,241,0.6)]', 'bg-amber-500/20 border border-amber-500/60 dark:border-amber-400 dark:shadow-[0_0_10px_rgba(251,191,36,0.6)]', 'bg-red-500/20 border border-red-500/60 dark:border-red-400 dark:shadow-[0_0_10px_rgba(248,113,113,0.6)]']
-                      const labelColor     = ['', 'text-[--t2]', 'text-[--t2]', 'text-[--t2]']
-                      const labelColorSent = ['', 'text-indigo-700 dark:text-indigo-200', 'text-amber-700 dark:text-amber-200', 'text-red-700 dark:text-red-200']
-                      const dotColor     = ['', 'bg-[--t3]', 'bg-[--t3]', 'bg-[--t3]']
-                      const dotColorSent = ['', 'bg-indigo-600 dark:bg-indigo-400', 'bg-amber-600 dark:bg-amber-400', 'bg-red-600 dark:bg-red-400']
+                      const rowBg     = ['', 'bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/70 dark:border-indigo-800/50', 'bg-orange-50 dark:bg-amber-950/50 border border-orange-200/70 dark:border-amber-800/40', 'bg-rose-50 dark:bg-rose-950/50 border border-rose-200/70 dark:border-rose-800/40']
+                      const rowBgSent = ['', 'bg-indigo-200 dark:bg-indigo-700/60 border border-indigo-400 dark:border-indigo-500', 'bg-orange-200 dark:bg-amber-700/50 border border-orange-400 dark:border-amber-500', 'bg-rose-200 dark:bg-rose-700/50 border border-rose-400 dark:border-rose-500']
+                      const labelColor     = ['', 'text-indigo-500 dark:text-indigo-400', 'text-orange-500 dark:text-amber-400', 'text-rose-500 dark:text-rose-400']
+                      const labelColorSent = ['', 'text-indigo-800 dark:text-indigo-100', 'text-orange-800 dark:text-amber-100', 'text-rose-800 dark:text-rose-100']
+                      const dotColor     = ['', 'bg-indigo-300 dark:bg-indigo-600', 'bg-orange-300 dark:bg-amber-600', 'bg-rose-300 dark:bg-rose-600']
+                      const dotColorSent = ['', 'bg-indigo-600 dark:bg-indigo-300', 'bg-orange-600 dark:bg-amber-300', 'bg-rose-600 dark:bg-rose-300']
                       return (
                         <>
                           <div className="space-y-1 mb-3">

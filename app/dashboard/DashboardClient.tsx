@@ -44,10 +44,11 @@ function FormatEuroSplit({ n }: { n: number | null }) {
 }
 
 
-function calculatePenalties(montant: number, dateEcheance: string): { days: number; interest: number; total: number } {
+function calculatePenalties(montant: number, dateEcheance: string, refDate?: Date): { days: number; interest: number; total: number } {
   const echeance = parseLocalDate(dateEcheance)
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const days = Math.max(0, Math.floor((today.getTime() - echeance.getTime()) / (1000 * 60 * 60 * 24)))
+  const ref = refDate ? new Date(refDate) : new Date()
+  ref.setHours(0, 0, 0, 0)
+  const days = Math.max(0, Math.floor((ref.getTime() - echeance.getTime()) / (1000 * 60 * 60 * 24)))
   const interest = Math.round(montant * 0.125 / 365 * days)
   const total = interest + 40
   return { days, interest, total }
@@ -69,7 +70,6 @@ const LEVEL_COLORS: Record<number, { chip: string; dot: string }> = {
 const LEVEL_LABELS: Record<number, string> = { 1: 'J+7', 2: 'J+15', 3: 'J+30' }
 const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
 
-const PENALTY_MARKER = '\n\n---PENALITES---\n'
 
 const STATUS_OPTIONS = [
   { value: 'en_attente', label: 'En attente' },
@@ -445,7 +445,6 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
 
   async function handleTogglePenalties(facture: Facture, activate: boolean) {
     if (!facture.montant || !facture.date_echeance) return
-    const pen = calculatePenalties(facture.montant, facture.date_echeance)
     const supabase = createClient()
 
     type Update = { relId: string; niveau: number; body: string | null }
@@ -455,17 +454,22 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       const rel = (facture.relances ?? []).find(r => r.niveau === n)
       if (!rel?.id) continue
 
-      let body: string | null
+      let body: string | null = null
       if (activate) {
-        const defaultBody = genEmailLevel(n, '', facture.nom_client, facture.numero_facture ?? '', String(facture.montant), facture.date_echeance).body
-        const base = rel.body_override
-          ? (rel.body_override.includes(PENALTY_MARKER) ? rel.body_override.split(PENALTY_MARKER)[0] : rel.body_override)
-          : defaultBody
-        const penLine = `À cette somme s'ajoutent les pénalités de retard légales (art. L441-10 C. com.) : ${pen.days} jour${pen.days > 1 ? 's' : ''} de retard × 12,5 %/an = ${formatEuro(pen.interest)}, augmentée de l'indemnité forfaitaire de 40 €, soit un total de ${formatEuro(pen.total)} de pénalités.`
-        body = base + PENALTY_MARKER + penLine
-      } else {
-        const current = rel.body_override ?? ''
-        body = current.includes(PENALTY_MARKER) ? (current.split(PENALTY_MARKER)[0] || null) : null
+        const sendDateStr = rel.date_planifiee ?? addDays(facture.date_echeance, LEVEL_OFFSETS[n])
+        const pen = calculatePenalties(facture.montant, facture.date_echeance, parseLocalDate(sendDateStr))
+        const totalDu = facture.montant + pen.interest + 40
+        const echeanceFormatted = parseLocalDate(facture.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        const deadlineDate = parseLocalDate(sendDateStr); deadlineDate.setDate(deadlineDate.getDate() + 8)
+        const deadlineFormatted = deadlineDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+        const ref = facture.numero_facture ? `n°${facture.numero_facture} ` : ''
+        const s = pen.days > 1 ? 's' : ''
+        const prenom = userPrenom || ''
+        if (n === 2) {
+          body = `Bonjour ${facture.nom_client},\n\nJe reviens vers vous pour la deuxième fois concernant ma facture ${ref}de ${formatEuro(facture.montant)}, dont l'échéance était le ${echeanceFormatted}.\n\nÀ ce jour, le montant total dû s'élève à ${formatEuro(totalDu)}, incluant les pénalités de retard légales (art. L441-10 C. com.) calculées sur ${pen.days} jour${s} de retard au taux de 12,5 %/an, soit ${formatEuro(pen.interest)}, ainsi que l'indemnité forfaitaire de recouvrement de 40 €.\n\nEn l'absence de règlement ou de réponse avant le ${deadlineFormatted}, je serai contraint(e) de prendre les mesures qui s'imposent.\n\nCordialement,\n${prenom}`
+        } else {
+          body = `Bonjour ${facture.nom_client},\n\nPar la présente, je vous mets en demeure de régler sous 8 jours la somme de ${formatEuro(totalDu)}, correspondant à ma facture ${ref}de ${formatEuro(facture.montant)} demeurée impayée depuis le ${echeanceFormatted}.\n\nCe montant inclut les pénalités de retard légales (art. L441-10 C. com.) calculées sur ${pen.days} jour${s} de retard au taux de 12,5 %/an, soit ${formatEuro(pen.interest)}, augmentée de l'indemnité forfaitaire de recouvrement de 40 €.\n\nSans règlement complet avant le ${deadlineFormatted}, je me réserve le droit d'engager toute procédure de recouvrement appropriée, aux frais du débiteur.\n\nCordialement,\n${prenom}`
+        }
       }
 
       updates.push({ relId: rel.id, niveau: n, body })
@@ -1030,7 +1034,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                           {/* Pénalités de retard */}
                           {facture.montant && facture.date_echeance && (() => {
                             const pen = calculatePenalties(facture.montant!, facture.date_echeance!)
-                            const penaltiesActive = (facture.relances ?? []).some(r => [2, 3].includes(r.niveau) && r.body_override?.includes(PENALTY_MARKER))
+                            const penaltiesActive = (facture.relances ?? []).some(r => [2, 3].includes(r.niveau) && r.body_override?.includes('L441-10'))
                             return (
                               <label className="flex items-center gap-2 mb-3 cursor-pointer group">
                                 <input

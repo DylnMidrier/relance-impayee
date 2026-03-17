@@ -44,6 +44,15 @@ function FormatEuroSplit({ n }: { n: number | null }) {
 }
 
 
+function calculatePenalties(montant: number, dateEcheance: string): { days: number; interest: number; total: number } {
+  const echeance = parseLocalDate(dateEcheance)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const days = Math.max(0, Math.floor((today.getTime() - echeance.getTime()) / (1000 * 60 * 60 * 24)))
+  const interest = Math.round(montant * 0.125 / 365 * days)
+  const total = interest + 40
+  return { days, interest, total }
+}
+
 function normalizeStatus(statut: string | null) {
   if (statut === 'payé' || statut === 'litigieux') return statut
   return 'en_attente'
@@ -59,6 +68,8 @@ const LEVEL_COLORS: Record<number, { chip: string; dot: string }> = {
 
 const LEVEL_LABELS: Record<number, string> = { 1: 'J+7', 2: 'J+15', 3: 'J+30' }
 const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
+
+const PENALTY_MARKER = '\n\n---PENALITES---\n'
 
 const STATUS_OPTIONS = [
   { value: 'en_attente', label: 'En attente' },
@@ -430,6 +441,49 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
           : f
       ))
     }
+  }
+
+  async function handleTogglePenalties(facture: Facture, activate: boolean) {
+    if (!facture.montant || !facture.date_echeance) return
+    const pen = calculatePenalties(facture.montant, facture.date_echeance)
+    const supabase = createClient()
+
+    type Update = { relId: string; niveau: number; body: string | null }
+    const updates: Update[] = []
+
+    for (const n of [2, 3] as const) {
+      const rel = (facture.relances ?? []).find(r => r.niveau === n)
+      if (!rel?.id) continue
+
+      let body: string | null
+      if (activate) {
+        const defaultBody = genEmailLevel(n, '', facture.nom_client, facture.numero_facture ?? '', String(facture.montant), facture.date_echeance).body
+        const base = rel.body_override
+          ? (rel.body_override.includes(PENALTY_MARKER) ? rel.body_override.split(PENALTY_MARKER)[0] : rel.body_override)
+          : defaultBody
+        const penLine = `À cette somme s'ajoutent les pénalités de retard légales (art. L441-10 C. com.) : ${pen.days} jour${pen.days > 1 ? 's' : ''} de retard × 12,5 %/an = ${formatEuro(pen.interest)}, augmentée de l'indemnité forfaitaire de 40 €, soit un total de ${formatEuro(pen.total)} de pénalités.`
+        body = base + PENALTY_MARKER + penLine
+      } else {
+        const current = rel.body_override ?? ''
+        body = current.includes(PENALTY_MARKER) ? (current.split(PENALTY_MARKER)[0] || null) : null
+      }
+
+      updates.push({ relId: rel.id, niveau: n, body })
+    }
+
+    await Promise.all(updates.map(({ relId, body }) =>
+      supabase.from('relances').update({ body_override: body }).eq('id', relId)
+    ))
+
+    setFactures(prev => prev.map(f =>
+      f.id === facture.id
+        ? { ...f, relances: f.relances.map(r => {
+            const u = updates.find(u => u.niveau === r.niveau)
+            return u ? { ...r, body_override: u.body } : r
+          }) }
+        : f
+    ))
+    showToast(activate ? 'Pénalités de retard ajoutées.' : 'Pénalités retirées.', 'success')
   }
 
   // ── Generate handlers ─────────────────────────────────────────────────────
@@ -972,6 +1026,55 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                               )
                             })}
                           </div>
+
+                          {/* Pénalités de retard */}
+                          {facture.montant && facture.date_echeance && (() => {
+                            const pen = calculatePenalties(facture.montant!, facture.date_echeance!)
+                            const penaltiesActive = (facture.relances ?? []).some(r => [2, 3].includes(r.niveau) && r.body_override?.includes(PENALTY_MARKER))
+                            return (
+                              <label className="flex items-center gap-2 mb-3 cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  checked={penaltiesActive}
+                                  onChange={e => handleTogglePenalties(facture, e.target.checked)}
+                                  className="sr-only peer"
+                                />
+                                <span className={`w-3.5 h-3.5 rounded-[4px] shrink-0 flex items-center justify-center border transition-all duration-150 ${penaltiesActive ? 'bg-[#7c6dfa] border-[#7c6dfa]' : 'border-[--bd2] bg-[--s1]'}`}>
+                                  {penaltiesActive ? (
+                                    <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-2 h-2 text-[--t3]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  )}
+                                </span>
+                                <span className="text-xs text-[--t2] group-hover:text-[--t1] transition-colors select-none">
+                                  Pénalités de retard
+                                  {pen.days > 0 && (
+                                    <span className="ml-1 text-[--t3]">({pen.days}j · +{formatEuro(pen.total)})</span>
+                                  )}
+                                </span>
+                                <span className="relative flex-shrink-0" onClick={e => e.preventDefault()}>
+                                  <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full border border-[--t3] text-[--t3] text-[9px] font-bold leading-none cursor-default select-none">?</span>
+                                  <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 rounded-xl bg-[--card] border border-[--bd2] shadow-xl px-3 py-2.5 text-[10px] text-[--t2] leading-relaxed opacity-0 group-hover:opacity-100 transition-opacity duration-150 z-20">
+                                    <span className="block font-semibold text-[--t1] mb-1">Calcul légal (art. L441-10)</span>
+                                    {pen.days > 0 ? (
+                                      <>
+                                        <span className="block">{formatEuro(facture.montant)} × 12,5 %/an × {pen.days}j = <strong>{formatEuro(pen.interest)}</strong></span>
+                                        <span className="block mt-0.5">+ indemnité forfaitaire = <strong>40 €</strong></span>
+                                        <span className="block mt-1 font-semibold text-[--t1]">Total : {formatEuro(pen.total)}</span>
+                                      </>
+                                    ) : (
+                                      <span className="block text-[--t3]">La facture n'est pas encore échue — les pénalités seront calculées dès le dépassement.</span>
+                                    )}
+                                    <span className="block mt-2 pt-2 border-t border-[--bd3] text-[--t3] italic">Outil d'aide à la rédaction. À titre indicatif — consultez un professionnel pour votre situation.</span>
+                                  </span>
+                                </span>
+                              </label>
+                            )
+                          })()}
 
                           {/* Envoi auto */}
                           {autoActive ? (

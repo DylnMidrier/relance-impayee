@@ -70,8 +70,10 @@ export default function DashboardNav({ plan }: { plan: Plan }) {
         </button>
 
         {plan === 'premium' ? (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-gradient-to-r from-violet-500 via-rose-400 to-orange-400 text-white shadow-md shadow-violet-500/20">
-            + Premium
+          <span className="inline-flex p-px rounded-full bg-gradient-to-r from-violet-400/60 via-rose-400/50 to-orange-300/60">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-[--bg]">
+              <span className="bg-gradient-to-r from-violet-400 via-rose-400 to-orange-300 bg-clip-text text-transparent">Premium</span>
+            </span>
           </span>
         ) : (
           <Link

@@ -37,6 +37,18 @@ const FEATURES = [
     desc: 'Montant total en attente, argent récupéré, état de chaque facture. Changez le statut en un clic, visualisez le calendrier des 30 prochains jours, modifiez les emails avant envoi.',
     points: ['KPIs en temps réel', 'Statuts : En attente / Payé / Litigieux', 'Calendrier 30 jours'],
   },
+  {
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+      </svg>
+    ),
+    accent: 'orange',
+    tag: 'Pénalités légales',
+    title: 'Calculez et intégrez les pénalités',
+    desc: 'En un clic, Recouvr.io calcule les pénalités de retard légales (art. L441-10) et les intègre automatiquement dans vos emails de relance ferme et mise en demeure.',
+    points: ['BCE + 10 pts = 12,5 %/an', 'Indemnité forfaitaire 40 €', 'Ajoutées aux emails niveaux 2 et 3'],
+  },
 ]
 
 const accentMap: Record<string, { bg: string; text: string; border: string; iconBg: string; iconText: string; dot: string; check: string }> = {
@@ -67,6 +79,15 @@ const accentMap: Record<string, { bg: string; text: string; border: string; icon
     dot: 'bg-emerald-500',
     check: 'text-emerald-400',
   },
+  orange: {
+    bg: 'bg-orange-500/10',
+    text: 'text-orange-400',
+    border: 'border-orange-500/20',
+    iconBg: 'bg-orange-500/20',
+    iconText: 'text-orange-400',
+    dot: 'bg-orange-500',
+    check: 'text-orange-400',
+  },
 }
 
 export default function ShowcaseSection() {
@@ -84,7 +105,7 @@ export default function ShowcaseSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {FEATURES.map(({ icon, accent, tag, title, desc, points }) => {
             const a = accentMap[accent]
             return (

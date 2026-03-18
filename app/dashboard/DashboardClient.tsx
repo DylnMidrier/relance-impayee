@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { createClient } from '../lib/supabase'
-import type { Facture, Relance, ScheduledSend, Plan } from './page'
+import type { Facture, Relance, Plan } from './page'
 import { FormState, EmailTemplate, genEmails, genEmailLevel } from '../lib/emails'
 import UpgradeModal from '../components/UpgradeModal'
 import ResultsModal from '../components/ResultsModal'
@@ -45,10 +45,11 @@ function FormatEuroSplit({ n }: { n: number | null }) {
 
 
 function calculatePenalties(montant: number, dateEcheance: string, refDate?: Date): { days: number; interest: number; total: number } {
-  const echeance = parseLocalDate(dateEcheance)
-  const ref = refDate ? new Date(refDate) : new Date()
-  ref.setHours(0, 0, 0, 0)
-  const days = Math.max(0, Math.floor((ref.getTime() - echeance.getTime()) / (1000 * 60 * 60 * 24)))
+  const [ey, em, ed] = dateEcheance.split('-').map(Number)
+  const echeanceUtc = Date.UTC(ey, em - 1, ed)
+  const ref = refDate ?? new Date()
+  const refUtc = Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate())
+  const days = Math.max(0, Math.round((refUtc - echeanceUtc) / 86_400_000))
   const interest = Math.round(montant * 0.125 / 365 * days)
   const total = interest + 40
   return { days, interest, total }
@@ -456,11 +457,11 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
 
       let body: string | null = null
       if (activate) {
-        const sendDateStr = rel.date_planifiee ?? addDays(facture.date_echeance, LEVEL_OFFSETS[n])
-        const pen = calculatePenalties(facture.montant, facture.date_echeance, parseLocalDate(sendDateStr))
+        const canonicalSendStr = addDays(facture.date_echeance, LEVEL_OFFSETS[n])
+        const pen = calculatePenalties(facture.montant, facture.date_echeance, parseLocalDate(canonicalSendStr))
         const totalDu = facture.montant + pen.interest + 40
         const echeanceFormatted = parseLocalDate(facture.date_echeance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-        const deadlineDate = parseLocalDate(sendDateStr); deadlineDate.setDate(deadlineDate.getDate() + 8)
+        const deadlineDate = parseLocalDate(canonicalSendStr); deadlineDate.setDate(deadlineDate.getDate() + 8)
         const deadlineFormatted = deadlineDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
         const ref = facture.numero_facture ? `n°${facture.numero_facture} ` : ''
         const s = pen.days > 1 ? 's' : ''
@@ -559,7 +560,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
     }
   }
 
-  async function handleGenerateSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleGenerateSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     // Vérification du quota AVANT de générer

@@ -5,7 +5,12 @@
       "Bash(git commit -m \"SEO: sitemap, JSON-LD, OG image, twitter card, noindex pages légales\")",
       "Bash(openssl rand -base64 32)",
       "Bash(npm list resend)",
-      "Bash(grep -A 15 \"select\\\\`\")"
+      "Bash(grep -A 15 \"select\\\\`\")",
+      "Bash(find /Users/dylan/relance-impayee -type f -name vercel.json -o -name next.config.* -o -name .env*)",
+      "Bash(grep -r scheduled_sends /Users/dylan/relance-impayee --include=*.ts --include=*.tsx --include=*.js ! -path */node_modules/* ! -path */.git/*)",
+      "Bash(grep -r \"CREATE TABLE\\\\|ALTER TABLE\" /Users/dylan/relance-impayee --include=*.sql --include=*.ts --include=*.tsx ! -path */node_modules/* ! -path */.git/*)",
+      "Bash(grep -r \"from.*relances\\\\|from.*scheduled_sends\\\\|from.*factures\" /Users/dylan/relance-impayee/app --include=*.ts --include=*.tsx ! -path */node_modules/*)",
+      "Bash(grep -r \"scheduled_sends\\\\|relances\" /Users/dylan/relance-impayee/app/components --include=*.tsx --include=*.ts)"
     ]
   }
 }

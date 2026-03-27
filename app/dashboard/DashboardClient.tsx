@@ -74,7 +74,7 @@ const LEVEL_OFFSETS: Record<number, number> = { 1: 7, 2: 15, 3: 30 }
 
 const STATUS_OPTIONS = [
   { value: 'en_attente', label: 'En attente' },
-  { value: 'payé', label: 'Payé ✓' },
+  { value: 'payé', label: 'Payée ✓' },
   { value: 'litigieux', label: 'Litigieux' },
 ]
 
@@ -707,18 +707,9 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
     <main className="min-h-screen bg-[--bg] pb-16">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         <div className="flex items-center justify-end gap-2">
-          {plan === 'premium' && (
-            <button
-              onClick={handleManageSubscription}
-              disabled={portalLoading}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border border-[--bd] text-[--t2] hover:border-[--bd2] hover:text-[--t1] transition-colors disabled:opacity-50"
-            >
-              {portalLoading ? 'Chargement…' : 'Gérer mon abonnement'}
-            </button>
-          )}
           <button
             onClick={() => { setGenerateForm(emptyForm); setShowGenerateModal(true) }}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-[#7c6dfa] hover:bg-[#6a5be0] text-white transition-colors shadow-[0_0_20px_rgba(124,109,250,0.25)]"
+            className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-[#7c6dfa] hover:bg-[#6a5be0] text-white transition-colors shadow-[0_0_20px_rgba(124,109,250,0.25)] w-full sm:w-auto"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -759,74 +750,66 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
               <h2 className="text-sm font-bold text-[--t1]">Calendrier des relances</h2>
               <p className="text-xs text-[--t3] mt-0.5">Rappels calculés 7, 15 et 30 jours après l'échéance</p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {!gcalMsg && syncableTotal > 0 && (
-                unsyncedCount > 0 ? (
-                  <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-full px-3 py-1.5">
-                    <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 dark:bg-amber-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500 dark:bg-amber-400" />
-                    </span>
-                    {unsyncedCount} relance{unsyncedCount > 1 ? 's' : ''} non synchronisée{unsyncedCount > 1 ? 's' : ''}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-full px-3 py-1.5">
-                    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Calendrier à jour
-                  </div>
-                )
-              )}
-
+            <div className="flex items-center gap-2">
               {gcalMsg && (
-                <div className="flex items-center gap-2 text-xs font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-full px-3 py-1.5">
+                <span className="text-xs text-red-400 flex items-center gap-1.5">
                   <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                   </svg>
-                  <span>{gcalMsg.text}</span>
+                  {gcalMsg.text}
                   {gcalMsg.needsReauth && (
-                    <button
-                      onClick={handleReauth}
-                      className="ml-1 font-semibold text-[#7c6dfa] hover:text-[#9d91fb] underline underline-offset-2 transition-colors whitespace-nowrap"
-                    >
-                      Autoriser →
-                    </button>
+                    <button onClick={handleReauth} className="font-semibold text-[#7c6dfa] hover:text-[#9d91fb] underline underline-offset-2 transition-colors">Autoriser →</button>
                   )}
                   {gcalMsg.canRetry && (
-                    <button
-                      onClick={() => { setGcalMsg(null); handleGCalSync() }}
-                      className="ml-1 font-semibold text-red-700 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 underline underline-offset-2 transition-colors whitespace-nowrap"
-                    >
-                      Réessayer →
-                    </button>
+                    <button onClick={() => { setGcalMsg(null); handleGCalSync() }} className="font-semibold underline underline-offset-2 hover:opacity-70 transition-opacity">Réessayer →</button>
                   )}
-                </div>
+                </span>
               )}
 
               {plan === 'free' ? (
                 <button
                   onClick={() => { setUpgradeContext('gcal'); setShowUpgrade(true) }}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#7c6dfa]/30 text-[#7c6dfa] bg-[#7c6dfa]/5 hover:bg-[#7c6dfa]/15 hover:border-[#7c6dfa]/60 hover:shadow-[0_0_12px_rgba(124,109,250,0.2)] transition-all whitespace-nowrap"
+                  className="flex items-center gap-1.5 text-xs text-[--t3] hover:text-[--t2] border border-[--bd] hover:border-[--bd2] px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                 >
-                  <svg className="w-3.5 h-3.5 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  Google Calendar
+                  <svg className="w-2.5 h-2.5 shrink-0 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                   </svg>
-                  Sync Google Calendar
                 </button>
               ) : (
                 <button
                   onClick={handleGCalSync}
                   disabled={syncing}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#7c6dfa]/30 text-[#7c6dfa] bg-[#7c6dfa]/5 hover:bg-[#7c6dfa]/15 hover:border-[#7c6dfa]/60 hover:shadow-[0_0_12px_rgba(124,109,250,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap border ${unsyncedCount > 0 ? 'border-amber-400/50 text-amber-600 dark:text-amber-400 hover:border-amber-400 hover:bg-amber-500/5' : 'border-emerald-400/50 text-emerald-500 dark:text-emerald-400 hover:border-emerald-400/80'}`}
                 >
-                  <svg className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  {!gcalMsg && syncableTotal > 0 && (
+                    unsyncedCount > 0 ? (
+                      <span className="relative flex h-1.5 w-1.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-400" />
+                      </span>
+                    ) : (
+                      <span className="relative flex h-1.5 w-1.5 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                      </span>
+                    )
+                  )}
+                  <svg className={`w-3.5 h-3.5 shrink-0 ${syncing ? 'animate-spin' : ''} ${unsyncedCount === 0 ? 'text-white' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
                     {syncing
                       ? <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       : <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     }
                   </svg>
-                  {syncing ? 'Synchronisation…' : 'Sync Google Calendar'}
+                  {syncing
+                    ? 'Sync…'
+                    : unsyncedCount > 0
+                      ? `Synchroniser (${unsyncedCount})`
+                      : 'Calendrier synchronisé'
+                  }
                 </button>
               )}
             </div>
@@ -931,7 +914,7 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                       <select
                         value={status}
                         onChange={e => handleStatusChange(facture.id, e.target.value)}
-                        className={`shrink-0 text-[9px] font-bold px-2 py-1 rounded-full border cursor-pointer appearance-none transition-colors uppercase tracking-wide ${
+                        className={`shrink-0 text-[9px] font-bold px-2 py-1 rounded-full border cursor-pointer appearance-none transition-colors uppercase text-center tracking-wide ${
                           status === 'payé'
                             ? 'bg-emerald-100 dark:bg-emerald-500/15 border-emerald-300 dark:border-emerald-500/25 text-emerald-700 dark:text-emerald-400'
                             : status === 'litigieux'

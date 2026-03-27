@@ -50,6 +50,10 @@ export async function GET(request: Request) {
   }
 
   const next = searchParams.get('next')
-  const redirectUrl = next === 'generate' ? `${origin}/dashboard?open=generate` : origin
+  const redirectUrl = next === 'generate'
+    ? `${origin}/dashboard?open=generate`
+    : next === 'dashboard'
+      ? `${origin}/dashboard`
+      : origin
   return NextResponse.redirect(redirectUrl)
 }

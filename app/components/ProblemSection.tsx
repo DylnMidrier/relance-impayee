@@ -1,3 +1,6 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
 import { PenLine, AlarmClock, Handshake } from 'lucide-react'
 
 const PAINS = [
@@ -27,7 +30,42 @@ const PAINS = [
   },
 ]
 
+function useCountUp(target: number, duration = 1400) {
+  const [count, setCount] = useState(0)
+  const [started, setStarted] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setStarted(true) },
+      { threshold: 0.5 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!started) return
+    const startTime = performance.now()
+    const tick = (now: number) => {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setCount(Math.round(eased * target))
+      if (progress < 1) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, [started, target, duration])
+
+  return { count, ref }
+}
+
 export default function ProblemSection() {
+  const { count, ref } = useCountUp(82)
+
   return (
     <section className="py-24 px-6 sm:px-8 bg-slate-900">
       <div className="max-w-5xl mx-auto">
@@ -59,8 +97,10 @@ export default function ProblemSection() {
           ))}
         </div>
 
-        <div className="mt-12 pt-10 border-t border-slate-800 text-center">
-          <span className="block text-6xl font-black text-white mb-3">82&nbsp;%</span>
+        <div ref={ref} className="mt-12 pt-10 border-t border-slate-800 text-center">
+          <span className="block text-6xl font-black text-white mb-3 tabular-nums">
+            {count}&nbsp;%
+          </span>
           <p className="text-slate-400 text-sm max-w-sm mx-auto">
             des indépendants subissent des retards de paiement.{' '}
             <span className="text-slate-200 font-medium">La majorité n'envoie jamais de relance formelle.</span>

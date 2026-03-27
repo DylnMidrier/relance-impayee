@@ -1001,30 +1001,33 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
                               const dateLabel = dateStr ? new Date(dateStr).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : null
                               return (
                                 <div key={n} className={`flex items-center justify-between px-3 py-2.5 rounded-xl ${sent ? rowBgSent[n] : rowBg[n]}`}>
-                                  <button
-                                    onClick={() => handleToggleEnvoi(facture, n)}
-                                    title={sent ? `Annuler la relance ${n}` : `Marquer la relance ${n} comme envoyée`}
-                                    className="flex items-center gap-2 min-w-0"
-                                  >
-                                    <span className={`w-2 h-2 rounded-full shrink-0 ${sent ? dotColorSent[n] : dotColor[n]}`} />
-                                    <span className={`text-sm font-semibold ${sent ? labelColorSent[n] : labelColor[n]}`}>
-                                      {n === 1 ? '1re relance' : n === 2 ? '2e relance' : 'Mise en demeure'}
-                                    </span>
-                                  </button>
-                                  <div className="flex items-center gap-0.5 shrink-0 ml-2">
-                                    {dateLabel && (
-                                      <span className={`text-xs ${sent ? labelColorSent[n] : 'text-[--t3]'}`}>{dateLabel}</span>
-                                    )}
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <button
+                                      onClick={() => handleToggleEnvoi(facture, n)}
+                                      title={sent ? `Annuler la relance ${n}` : `Marquer la relance ${n} comme envoyée`}
+                                      className="flex items-center gap-2 min-w-0"
+                                    >
+                                      <span className={`w-2 h-2 rounded-full shrink-0 ${sent ? dotColorSent[n] : dotColor[n]}`} />
+                                      <span className={`text-sm font-semibold ${sent ? labelColorSent[n] : labelColor[n]}`}>
+                                        {n === 1 ? '1re relance' : n === 2 ? '2e relance' : 'Mise en demeure'}
+                                      </span>
+                                    </button>
                                     {!!relance && (
                                       <button
                                         onClick={() => openEditEmail(facture, n)}
-                                        title="Modifier l'email"
-                                        className="p-2 text-[--t3] hover:text-[--t2] transition-colors rounded"
+                                        title="Voir l'email"
+                                        className={`p-1 rounded-md transition-colors ${sent ? 'opacity-50 hover:opacity-100' : 'text-[--t3] hover:text-[--t2] hover:bg-[--s1]'}`}
                                       >
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                          <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
                                         </svg>
                                       </button>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center shrink-0 ml-2">
+                                    {dateLabel && (
+                                      <span className={`text-xs ${sent ? labelColorSent[n] : 'text-[--t3]'}`}>{dateLabel}</span>
                                     )}
                                   </div>
                                 </div>
@@ -1190,10 +1193,10 @@ export default function DashboardClient({ factures: initial, plan, paymentSucces
       {/* ── Edit email modal ──────────────────────────────────────────────── */}
       {editingEmail && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm px-0 sm:px-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
           onClick={e => { if (e.target === e.currentTarget && !savingEmail) setEditingEmail(null) }}
         >
-          <div className="bg-[--card] border border-[--bd2] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg flex flex-col max-h-[90dvh]">
+          <div className="bg-[--card] border border-[--bd2] rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90dvh]">
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-[--bd] shrink-0">
               <div>
